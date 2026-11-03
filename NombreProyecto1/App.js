@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import {
   View,
@@ -7,7 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert
+  Alert,
+  ActivityIndicator,
+  StatusBar
 } from 'react-native';
 
 import {
@@ -15,8 +17,82 @@ import {
   MaterialCommunityIcons
 } from '@expo/vector-icons';
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
 import Login from './PANTALLAS/Login';
 import Registro from './PANTALLAS/Registro';
+
+const CLAVE_GUARDADO = '@ColoniaGang_Usuarios';
+
+
+// COMPONENTE PARA LOS CONTROLES
+
+function Control({
+  icono,
+  material = false,
+  titulo,
+  activo,
+  textoOn,
+  textoOff,
+  accion
+}) {
+
+  const Icono = material
+    ? MaterialCommunityIcons
+    : Ionicons;
+
+  let textoAccion;
+
+  if (titulo === 'Iluminación' || titulo.startsWith('Poste')) {
+    textoAccion = activo ? 'Apagar' : 'Encender';
+  } else if (titulo === 'Tendedero') {
+    textoAccion = activo ? 'Guardar' : 'Extender';
+  } else {
+    textoAccion = activo ? 'Cerrar' : 'Abrir';
+  }
+
+  return (
+
+    <View style={styles.filaControl}>
+
+      <View style={styles.fondoIcono}>
+        <Icono
+          name={icono}
+          size={25}
+          color="#2563EB"
+        />
+      </View>
+
+      <View style={styles.infoControl}>
+
+        <Text style={styles.tituloControl}>
+          {titulo}
+        </Text>
+
+        <Text style={styles.estado}>
+          {activo ? textoOn : textoOff}
+        </Text>
+
+      </View>
+
+      <TouchableOpacity
+        style={[
+          styles.botonChico,
+          activo && styles.botonGris
+        ]}
+        onPress={accion}
+      >
+        <Text style={styles.textoBoton}>
+          {textoAccion}
+        </Text>
+      </TouchableOpacity>
+
+    </View>
+  );
+}
+
+
+// APLICACION PRINCIPAL
 
 export default function App() {
 
@@ -26,14 +102,17 @@ export default function App() {
   const [rol, setRol] = useState('');
   const [tipoCuenta, setTipoCuenta] = useState('usuario');
 
-  // REGISTRO DE USUARIOS
+  // REGISTRO
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
-  const [usuariosRegistrados, setUsuariosRegistrados] = useState([]);
+  const [cuentas, setCuentas] = useState([]);
+  const [cargando, setCargando] = useState(true);
 
-  // CASA ASIGNADA
+  // CASA Y NAVEGACION
   const [casaAsignada, setCasaAsignada] = useState(0);
+  const [cuentaDemo, setCuentaDemo] = useState(false);
+  const [pestana, setPestana] = useState('inicio');
 
-  // ESTADOS DE LAS CUATRO CASAS
+  // ESTADO DE LAS CUATRO CASAS
   const [casas, setCasas] = useState([
     { luz: false, puerta: false, especial: false },
     { luz: false, puerta: false, especial: false },
@@ -41,144 +120,320 @@ export default function App() {
     { luz: false, puerta: false, especial: false }
   ]);
 
-  // ESTADOS DE LOS SEIS POSTES
+  // ESTADO DE LOS SEIS POSTES
   const [postes, setPostes] = useState([
     false, false, false, false, false, false
   ]);
 
-  // REGISTRAR USUARIOS
-  const registrarUsuario = (nombre, nuevoUsuario, nuevaContrasena) => {
+
+  // CARGAR CUENTAS GUARDADAS
+
+  useEffect(() => {
+
+    const cargarCuentas = async () => {
+
+      try {
+
+        const guardado = await AsyncStorage.getItem(
+          CLAVE_GUARDADO
+        );
+
+        if (guardado) {
+
+          const datos = JSON.parse(guardado);
+
+          if (Array.isArray(datos)) {
+            setCuentas(datos);
+          }
+        }
+
+      } catch (error) {
+
+        Alert.alert(
+          'Aviso',
+          'No se pudieron cargar los registros guardados.'
+        );
+
+      } finally {
+
+        setCargando(false);
+
+      }
+    };
+
+    cargarCuentas();
+
+  }, []);
+
+
+  // IDENTIFICAR CASAS OCUPADAS
+
+  const casasOcupadas = cuentas.map(
+    persona => persona.casa
+  );
+
+
+  // REGISTRAR NUEVO USUARIO
+
+  const registrarUsuario = async (
+    nombre,
+    nuevoUsuario,
+    nuevaContrasena,
+    casaElegida
+  ) => {
 
     const nombreLimpio = nombre.trim();
-    const nombreUsuario = nuevoUsuario.trim().toLowerCase();
 
-    if (!nombreLimpio || !nombreUsuario || !nuevaContrasena) {
-      Alert.alert('Error', 'Completa todos los campos');
-      return;
+    const usuarioLimpio = nuevoUsuario
+      .trim()
+      .toLowerCase();
+
+    if (!nombreLimpio || !usuarioLimpio || !nuevaContrasena) {
+
+      Alert.alert(
+        'Error',
+        'Completa todos los campos.'
+      );
+
+      return false;
     }
 
-    const existe = usuariosRegistrados.some(
-      persona => persona.usuario === nombreUsuario
+    // COMPROBAR QUE EL USUARIO NO EXISTA
+
+    const existe = cuentas.some(
+      persona => persona.usuario === usuarioLimpio
     );
 
     if (
-      existe ||
-      nombreUsuario === 'admin' ||
-      nombreUsuario === 'usuario'
+      usuarioLimpio === 'admin' ||
+      usuarioLimpio === 'usuario' ||
+      existe
     ) {
-      Alert.alert('Error', 'Ese nombre de usuario ya existe');
-      return;
+
+      Alert.alert(
+        'Error',
+        'Ese nombre de usuario ya existe.'
+      );
+
+      return false;
     }
 
-    const persona = {
+    // COMPROBAR QUE LA CASA ESTE DISPONIBLE
+
+    if (
+      ![0, 1, 2, 3].includes(casaElegida) ||
+      casasOcupadas.includes(casaElegida)
+    ) {
+
+      Alert.alert(
+        'Casa no disponible',
+        'Elige otra casa que esté libre.'
+      );
+
+      return false;
+    }
+
+    // CREAR LA CUENTA
+
+    const nuevaCuenta = {
       nombre: nombreLimpio,
-      usuario: nombreUsuario,
+      usuario: usuarioLimpio,
       contrasena: nuevaContrasena,
-      casa: 0
+      casa: casaElegida
     };
 
-    setUsuariosRegistrados(anteriores => [
-      ...anteriores,
-      persona
-    ]);
+    const nuevasCuentas = [
+      ...cuentas,
+      nuevaCuenta
+    ];
 
-    Alert.alert('Registro exitoso', 'Tu cuenta fue creada correctamente');
+    // GUARDAR EN EL DISPOSITIVO
 
-    setUsuario(nombreUsuario);
-    setContrasena('');
-    setTipoCuenta('usuario');
-    setMostrarRegistro(false);
+    try {
+
+      await AsyncStorage.setItem(
+        CLAVE_GUARDADO,
+        JSON.stringify(nuevasCuentas)
+      );
+
+      setCuentas(nuevasCuentas);
+
+      setUsuario(usuarioLimpio);
+      setContrasena('');
+      setTipoCuenta('usuario');
+      setMostrarRegistro(false);
+
+      Alert.alert(
+        'Registro exitoso',
+        `Se te asignó la Casa ${casaElegida + 1}.`
+      );
+
+      return true;
+
+    } catch (error) {
+
+      Alert.alert(
+        'Error',
+        'No se pudo guardar la cuenta.'
+      );
+
+      return false;
+
+    }
   };
 
+
   // INICIAR SESION
+
   const iniciarSesion = () => {
 
-    const nombreUsuario = usuario.trim().toLowerCase();
+    const nombreUsuario = usuario
+      .trim()
+      .toLowerCase();
 
     if (!nombreUsuario || !contrasena) {
-      Alert.alert('Error', 'Ingresa tu usuario y contraseña');
+
+      Alert.alert(
+        'Error',
+        'Ingresa tu usuario y contraseña.'
+      );
+
       return;
     }
 
-    // ADMINISTRADOR DE PRUEBA
+    // CUENTA DEL ADMINISTRADOR
+
     if (tipoCuenta === 'admin') {
 
-      if (nombreUsuario === 'admin' && contrasena === '1234') {
+      if (
+        nombreUsuario === 'admin' &&
+        contrasena === '1234'
+      ) {
+
         setRol('admin');
+        setPestana('inicio');
+
       } else {
+
         Alert.alert(
           'Acceso denegado',
-          'Los datos del administrador son incorrectos'
+          'Los datos del administrador son incorrectos.'
         );
+
       }
 
       return;
     }
 
-    // USUARIO NORMAL DE PRUEBA
-    if (nombreUsuario === 'usuario' && contrasena === '1234') {
-      setCasaAsignada(0);
-      setRol('usuario');
-      return;
-    }
+    // USUARIO DE DEMOSTRACION
+    // UTILIZA UNA CASA LIBRE, SIN RESERVARLA
 
-    // NO PERMITIR QUE ADMIN ENTRE COMO USUARIO
-    if (nombreUsuario === 'admin') {
-      Alert.alert(
-        'Error',
-        'Selecciona la opción Administrador'
+    if (
+      nombreUsuario === 'usuario' &&
+      contrasena === '1234'
+    ) {
+
+      const libre = [0, 1, 2, 3].find(
+        i => !casasOcupadas.includes(i)
       );
+
+      if (libre === undefined) {
+
+        Alert.alert(
+          'Sin casas libres',
+          'Inicia sesión con una cuenta registrada.'
+        );
+
+        return;
+      }
+
+      setCasaAsignada(libre);
+      setCuentaDemo(true);
+      setRol('usuario');
+      setPestana('inicio');
+
       return;
     }
 
-    // BUSCAR USUARIOS REGISTRADOS
-    const encontrado = usuariosRegistrados.find(
+    // BUSCAR CUENTA REGISTRADA
+
+    const encontrada = cuentas.find(
       persona =>
         persona.usuario === nombreUsuario &&
         persona.contrasena === contrasena
     );
 
-    if (encontrado) {
-      setCasaAsignada(encontrado.casa);
-      setRol('usuario');
-    } else {
-      Alert.alert('Error', 'Usuario o contraseña incorrectos');
+    if (!encontrada) {
+
+      Alert.alert(
+        'Error',
+        'Usuario o contraseña incorrectos.'
+      );
+
+      return;
     }
+
+    // ENTRAR A LA CASA ELEGIDA AL REGISTRARSE
+
+    setCasaAsignada(encontrada.casa);
+    setCuentaDemo(false);
+    setRol('usuario');
+    setPestana('inicio');
   };
 
+
   // CERRAR SESION
+
   const cerrarSesion = () => {
+
     setRol('');
     setUsuario('');
     setContrasena('');
     setTipoCuenta('usuario');
-    setMostrarRegistro(false);
+    setPestana('inicio');
+    setCuentaDemo(false);
+
   };
 
-  // CAMBIAR ESTADO DE UNA CASA
+
+  // ENCENDER O APAGAR COMPONENTES DE LAS CASAS
+
   const cambiarEstado = (numeroCasa, componente) => {
 
-    // EL USUARIO SOLO CONTROLA SU CASA
-    if (rol === 'usuario' && numeroCasa !== casaAsignada) {
+    // EL USUARIO NORMAL SOLO CONTROLA SU CASA
+
+    if (
+      rol !== 'admin' &&
+      (
+        rol !== 'usuario' ||
+        casaAsignada !== numeroCasa
+      )
+    ) {
       return;
     }
 
     setCasas(anteriores =>
-      anteriores.map((casa, index) => {
+      anteriores.map((casa, i) => {
 
-        if (index === numeroCasa) {
+        if (i === numeroCasa) {
+
           return {
             ...casa,
             [componente]: !casa[componente]
           };
+
         }
 
         return casa;
+
       })
     );
+
   };
 
-  // CAMBIAR ESTADO DE UN POSTE
+
+  // ENCENDER O APAGAR POSTES
+
   const cambiarPoste = (numeroPoste) => {
 
     if (rol !== 'admin') {
@@ -186,195 +441,169 @@ export default function App() {
     }
 
     setPostes(anteriores =>
-      anteriores.map((estado, index) =>
-        index === numeroPoste ? !estado : estado
+      anteriores.map((estado, i) =>
+        i === numeroPoste ? !estado : estado
       )
     );
   };
 
-  // MOSTRAR LOS CONTROLES DE CADA CASA
+
+  // MOSTRAR LOS CONTROLES DE UNA CASA
+
   const mostrarCasa = (numeroCasa) => {
 
     const casa = casas[numeroCasa];
-    const tieneVentana = numeroCasa < 2;
+
+    const ventana = numeroCasa < 2;
+
+    const propietaria = cuentas.find(
+      persona => persona.casa === numeroCasa
+    );
 
     return (
-      <View style={styles.tarjeta} key={numeroCasa}>
 
-        {/* TITULO DE LA CASA */}
+      <View
+        style={styles.tarjeta}
+        key={numeroCasa}
+      >
 
         <View style={styles.encabezadoCasa}>
 
-          <View style={styles.iconoCasa}>
-            <Ionicons
-              name="home-outline"
-              size={26}
-              color="#2563EB"
-            />
-          </View>
+          <Ionicons
+            name="home-outline"
+            size={29}
+            color="#2563EB"
+          />
 
-          <View style={styles.flexible}>
+          <View style={styles.infoControl}>
+
             <Text style={styles.nombreCasa}>
               Casa {numeroCasa + 1}
               {numeroCasa === 3 ? ' Premium' : ''}
             </Text>
 
-            <Text style={styles.descripcion}>
-              Controles inteligentes
+            <Text style={styles.estado}>
+
+              {rol === 'admin'
+                ? (
+                    propietaria
+                      ? `Adquirida por: ${propietaria.nombre}`
+                      : 'Disponible'
+                  )
+                : 'Tu vivienda asignada'}
+
             </Text>
+
           </View>
 
         </View>
 
-        {/* CONTROL DE LUCES */}
+        {/* LUZ */}
 
-        <View style={styles.filaControl}>
+        <Control
+          icono={casa.luz ? 'bulb' : 'bulb-outline'}
+          titulo="Iluminación"
+          activo={casa.luz}
+          textoOn="Encendida"
+          textoOff="Apagada"
+          accion={() =>
+            cambiarEstado(numeroCasa, 'luz')
+          }
+        />
 
-          <View style={styles.iconoControl}>
-            <Ionicons
-              name={casa.luz ? 'bulb' : 'bulb-outline'}
-              size={25}
-              color="#2563EB"
-            />
-          </View>
+        {/* PUERTA */}
 
-          <View style={styles.infoControl}>
-            <Text style={styles.nombreControl}>
-              Iluminación
-            </Text>
+        <Control
+          material={true}
+          icono={
+            casa.puerta ? 'door-open' : 'door-closed'
+          }
+          titulo="Puerta"
+          activo={casa.puerta}
+          textoOn="Abierta"
+          textoOff="Cerrada"
+          accion={() =>
+            cambiarEstado(numeroCasa, 'puerta')
+          }
+        />
 
-            <Text style={styles.estadoControl}>
-              {casa.luz ? 'Encendida' : 'Apagada'}
-            </Text>
-          </View>
+        {/* VENTANA O TENDEDERO */}
 
-          <TouchableOpacity
-            style={[
-              styles.botonControl,
-              casa.luz && styles.botonApagar
-            ]}
-            onPress={() => cambiarEstado(numeroCasa, 'luz')}
-          >
-            <Text style={styles.textoBoton}>
-              {casa.luz ? 'Apagar' : 'Encender'}
-            </Text>
-          </TouchableOpacity>
-
-        </View>
-
-        {/* CONTROL DE PUERTAS */}
-
-        <View style={styles.filaControl}>
-
-          <View style={styles.iconoControl}>
-            <MaterialCommunityIcons
-              name={casa.puerta ? 'door-open' : 'door-closed'}
-              size={26}
-              color="#2563EB"
-            />
-          </View>
-
-          <View style={styles.infoControl}>
-            <Text style={styles.nombreControl}>
-              Puerta
-            </Text>
-
-            <Text style={styles.estadoControl}>
-              {casa.puerta ? 'Abierta' : 'Cerrada'}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.botonControl,
-              casa.puerta && styles.botonApagar
-            ]}
-            onPress={() => cambiarEstado(numeroCasa, 'puerta')}
-          >
-            <Text style={styles.textoBoton}>
-              {casa.puerta ? 'Cerrar' : 'Abrir'}
-            </Text>
-          </TouchableOpacity>
-
-        </View>
-
-        {/* CONTROL DE VENTANA O TENDEDERO */}
-
-        <View style={styles.filaControl}>
-
-          <View style={styles.iconoControl}>
-
-            {tieneVentana ? (
-
-              <MaterialCommunityIcons
-                name={casa.especial ? 'window-open' : 'window-closed'}
-                size={26}
-                color="#2563EB"
-              />
-
-            ) : (
-
-              <Ionicons
-                name="shirt-outline"
-                size={25}
-                color="#2563EB"
-              />
-
-            )}
-
-          </View>
-
-          <View style={styles.infoControl}>
-
-            <Text style={styles.nombreControl}>
-              {tieneVentana ? 'Ventana' : 'Tendedero'}
-            </Text>
-
-            <Text style={styles.estadoControl}>
-              {tieneVentana
-                ? (casa.especial ? 'Abierta' : 'Cerrada')
-                : (casa.especial ? 'Extendido' : 'Guardado')}
-            </Text>
-
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.botonControl,
-              casa.especial && styles.botonApagar
-            ]}
-            onPress={() => cambiarEstado(numeroCasa, 'especial')}
-          >
-
-            <Text style={styles.textoBoton}>
-              {tieneVentana
-                ? (casa.especial ? 'Cerrar' : 'Abrir')
-                : (casa.especial ? 'Guardar' : 'Extender')}
-            </Text>
-
-          </TouchableOpacity>
-
-        </View>
+        <Control
+          material={ventana}
+          icono={
+            ventana
+              ? (
+                  casa.especial
+                    ? 'window-open'
+                    : 'window-closed'
+                )
+              : 'shirt-outline'
+          }
+          titulo={ventana ? 'Ventana' : 'Tendedero'}
+          activo={casa.especial}
+          textoOn={
+            ventana ? 'Abierta' : 'Extendido'
+          }
+          textoOff={
+            ventana ? 'Cerrada' : 'Guardado'
+          }
+          accion={() =>
+            cambiarEstado(numeroCasa, 'especial')
+          }
+        />
 
       </View>
+
     );
   };
 
-  // PANTALLA DE REGISTRO
-  if (rol === '' && mostrarRegistro) {
+
+  // PANTALLA DE CARGA
+
+  if (cargando) {
 
     return (
-      <Registro
-        registrar={registrarUsuario}
-        volver={() => setMostrarRegistro(false)}
-      />
+
+      <View style={styles.cargando}>
+
+        <ActivityIndicator
+          size="large"
+          color="#2563EB"
+        />
+
+        <Text style={styles.estado}>
+          Cargando colonia...
+        </Text>
+
+      </View>
+
     );
   }
 
-  // PANTALLA DE LOGIN
+
+  // REGISTRO
+
+  if (rol === '' && mostrarRegistro) {
+
+    return (
+
+      <Registro
+        registrar={registrarUsuario}
+        casasOcupadas={casasOcupadas}
+        volver={() => setMostrarRegistro(false)}
+      />
+
+    );
+  }
+
+
+  // INICIO DE SESION
+
   if (rol === '') {
 
     return (
+
       <Login
         usuario={usuario}
         setUsuario={setUsuario}
@@ -385,244 +614,494 @@ export default function App() {
         iniciarSesion={iniciarSesion}
         irRegistro={() => setMostrarRegistro(true)}
       />
+
     );
   }
 
-  // PANELES DE ADMINISTRADOR Y USUARIO
+
+  // INFORMACION DEL USUARIO
+
+  const perfil = cuentas.find(
+    persona =>
+      persona.usuario === usuario.trim().toLowerCase()
+  );
+
+
+  // OPCIONES DE NAVEGACION
+
+  const menu = rol === 'admin'
+
+    ? [
+        {
+          id: 'inicio',
+          titulo: 'Inicio',
+          icono: 'grid-outline'
+        },
+        {
+          id: 'casas',
+          titulo: 'Casas',
+          icono: 'home-outline'
+        },
+        {
+          id: 'postes',
+          titulo: 'Postes',
+          icono: 'bulb-outline'
+        }
+      ]
+
+    : [
+        {
+          id: 'inicio',
+          titulo: 'Inicio',
+          icono: 'home-outline'
+        },
+        {
+          id: 'casa',
+          titulo: 'Mi casa',
+          icono: 'options-outline'
+        },
+        {
+          id: 'perfil',
+          titulo: 'Mi perfil',
+          icono: 'person-outline'
+        }
+      ];
+
+
+  // RESUMEN DE LA COLONIA
+
+  const miCasa = casas[casaAsignada];
+
+  const lucesActivas = casas.filter(
+    casa => casa.luz
+  ).length;
+
+  const postesActivos = postes.filter(
+    estado => estado
+  ).length;
+
+
+  // PANTALLA PRINCIPAL
+
   return (
 
-    <ScrollView
-      style={styles.fondo}
-      contentContainerStyle={styles.contenido}
-    >
+    <View style={styles.fondo}>
 
-      {/* ENCABEZADO */}
+      <StatusBar barStyle="dark-content" />
 
-      <View style={styles.encabezado}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.contenido}
+      >
 
-        <View style={styles.logoPrincipal}>
+        {/* ENCABEZADO */}
 
-          <Ionicons
-            name={
-              rol === 'admin'
-                ? 'shield-checkmark-outline'
-                : 'person-outline'
-            }
-            size={37}
-            color="#FFFFFF"
-          />
+        <View style={styles.encabezado}>
+
+          <View style={styles.iconoTitulo}>
+
+            <Ionicons
+              name={
+                rol === 'admin'
+                  ? 'shield-checkmark-outline'
+                  : 'home-outline'
+              }
+              size={29}
+              color="#FFFFFF"
+            />
+
+          </View>
+
+          <View style={styles.infoControl}>
+
+            <Text style={styles.titulo}>
+              Colonia Domótica
+            </Text>
+
+            <Text style={styles.estado}>
+              {rol === 'admin'
+                ? 'Panel del administrador'
+                : 'Panel del residente'}
+            </Text>
+
+          </View>
+
+          <TouchableOpacity onPress={cerrarSesion}>
+
+            <Ionicons
+              name="log-out-outline"
+              size={27}
+              color="#DC2626"
+            />
+
+          </TouchableOpacity>
 
         </View>
 
-        <Text style={styles.titulo}>
-          {rol === 'admin'
-            ? 'Panel Administrador'
-            : 'Mi Casa Inteligente'}
-        </Text>
 
-        <Text style={styles.subtitulo}>
-          {rol === 'admin'
-            ? 'Control general de la colonia'
-            : 'Bienvenido a tu hogar inteligente'}
-        </Text>
+        {/* ADMINISTRADOR: VENTANA 1 - INICIO */}
 
-      </View>
+        {rol === 'admin' && pestana === 'inicio' && (
 
-      {/* PANEL ADMINISTRADOR */}
+          <View>
 
-      {rol === 'admin' ? (
-
-        <View>
-
-          <View style={styles.encabezadoSeccion}>
-
-            <Ionicons
-              name="home-outline"
-              size={25}
-              color="#1E3A8A"
-            />
-
-            <Text style={styles.tituloSeccion}>
-              Casas inteligentes
+            <Text style={styles.seccion}>
+              Resumen de la colonia
             </Text>
 
-          </View>
+            <View style={styles.resumen}>
 
-          {casas.map((casa, index) => mostrarCasa(index))}
-
-          {/* ALUMBRADO PUBLICO */}
-
-          <View style={styles.encabezadoSeccion}>
-
-            <Ionicons
-              name="bulb-outline"
-              size={25}
-              color="#1E3A8A"
-            />
-
-            <Text style={styles.tituloSeccion}>
-              Alumbrado público
-            </Text>
-
-          </View>
-
-          <View style={styles.tarjeta}>
-
-            {postes.map((encendido, index) => (
-
-              <View
-                key={index}
-                style={styles.filaControl}
-              >
-
-                <View style={styles.iconoControl}>
-
-                  <Ionicons
-                    name={encendido ? 'bulb' : 'bulb-outline'}
-                    size={25}
-                    color="#2563EB"
-                  />
-
-                </View>
-
-                <View style={styles.infoControl}>
-
-                  <Text style={styles.nombreControl}>
-                    Poste {index + 1}
-                  </Text>
-
-                  <Text style={styles.estadoControl}>
-                    {encendido ? 'Encendido' : 'Apagado'}
-                  </Text>
-
-                </View>
-
-                <TouchableOpacity
-                  style={[
-                    styles.botonControl,
-                    encendido && styles.botonApagar
-                  ]}
-                  onPress={() => cambiarPoste(index)}
-                >
-
-                  <Text style={styles.textoBoton}>
-                    {encendido ? 'Apagar' : 'Encender'}
-                  </Text>
-
-                </TouchableOpacity>
-
+              <View style={styles.dato}>
+                <Text style={styles.numero}>4</Text>
+                <Text>Casas</Text>
               </View>
 
-            ))}
+              <View style={styles.dato}>
+                <Text style={styles.numero}>
+                  {cuentas.length}
+                </Text>
+                <Text>Ocupadas</Text>
+              </View>
 
-            {/* ENCENDER TODOS LOS POSTES */}
+              <View style={styles.dato}>
+                <Text style={styles.numero}>
+                  {lucesActivas}
+                </Text>
+                <Text>Luces encendidas</Text>
+              </View>
+
+              <View style={styles.dato}>
+                <Text style={styles.numero}>
+                  {postesActivos}
+                </Text>
+                <Text>Postes encendidos</Text>
+              </View>
+
+            </View>
 
             <TouchableOpacity
-              style={styles.botonTodos}
-              onPress={() => setPostes(Array(6).fill(true))}
+              style={styles.botonGrande}
+              onPress={() => setPestana('casas')}
             >
 
               <Ionicons
-                name="flash-outline"
+                name="home-outline"
                 size={21}
                 color="#FFFFFF"
               />
 
-              <Text style={styles.textoBotonGrande}>
-                Encender todos los postes
+              <Text style={styles.textoBoton}>
+                Administrar casas
               </Text>
 
             </TouchableOpacity>
 
-            {/* APAGAR TODOS LOS POSTES */}
-
             <TouchableOpacity
-              style={styles.botonTodosApagar}
-              onPress={() => setPostes(Array(6).fill(false))}
+              style={styles.botonGrande}
+              onPress={() => setPestana('postes')}
             >
 
               <Ionicons
-                name="power-outline"
+                name="bulb-outline"
                 size={21}
-                color="#334155"
+                color="#FFFFFF"
               />
 
-              <Text style={styles.textoApagarTodos}>
-                Apagar todos los postes
+              <Text style={styles.textoBoton}>
+                Controlar postes
               </Text>
 
             </TouchableOpacity>
 
           </View>
 
-        </View>
+        )}
 
-      ) : (
 
-        // PANEL DEL USUARIO NORMAL
+        {/* ADMINISTRADOR: VENTANA 2 - CASAS */}
 
-        <View>
+        {rol === 'admin' && pestana === 'casas' && (
 
-          <View style={styles.encabezadoSeccion}>
+          <View>
 
-            <Ionicons
-              name="home-outline"
-              size={25}
-              color="#1E3A8A"
-            />
-
-            <Text style={styles.tituloSeccion}>
-              Mi vivienda
+            <Text style={styles.seccion}>
+              Casas inteligentes
             </Text>
+
+            <Text style={styles.descripcion}>
+              Controla las cuatro viviendas.
+            </Text>
+
+            {casas.map((casa, i) => mostrarCasa(i))}
 
           </View>
 
-          <View style={styles.avisoUsuario}>
+        )}
 
-            <Ionicons
-              name="information-circle-outline"
-              size={22}
-              color="#2563EB"
-            />
 
-            <Text style={styles.textoAviso}>
-              Puedes controlar las funciones de tu casa asignada.
+        {/* ADMINISTRADOR: VENTANA 3 - POSTES */}
+
+        {rol === 'admin' && pestana === 'postes' && (
+
+          <View>
+
+            <Text style={styles.seccion}>
+              Alumbrado público
             </Text>
+
+            <View style={styles.tarjeta}>
+
+              {postes.map((encendido, i) => (
+
+                <Control
+                  key={i}
+                  icono={
+                    encendido ? 'bulb' : 'bulb-outline'
+                  }
+                  titulo={`Poste ${i + 1}`}
+                  activo={encendido}
+                  textoOn="Encendido"
+                  textoOff="Apagado"
+                  accion={() => cambiarPoste(i)}
+                />
+
+              ))}
+
+              <TouchableOpacity
+                style={styles.botonGrande}
+                onPress={() =>
+                  setPostes(Array(6).fill(true))
+                }
+              >
+
+                <Ionicons
+                  name="flash-outline"
+                  size={21}
+                  color="#FFFFFF"
+                />
+
+                <Text style={styles.textoBoton}>
+                  Encender todos
+                </Text>
+
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.botonGrande}
+                onPress={() =>
+                  setPostes(Array(6).fill(false))
+                }
+              >
+
+                <Ionicons
+                  name="power-outline"
+                  size={21}
+                  color="#FFFFFF"
+                />
+
+                <Text style={styles.textoBoton}>
+                  Apagar todos
+                </Text>
+
+              </TouchableOpacity>
+
+            </View>
 
           </View>
 
-          {mostrarCasa(casaAsignada)}
+        )}
 
-        </View>
 
-      )}
+        {/* USUARIO: VENTANA 1 - INICIO */}
 
-      {/* CERRAR SESION */}
+        {rol === 'usuario' && pestana === 'inicio' && (
 
-      <TouchableOpacity
-        style={styles.botonSalir}
-        onPress={cerrarSesion}
-      >
+          <View>
 
-        <Ionicons
-          name="log-out-outline"
-          size={22}
-          color="#FFFFFF"
-        />
+            <Text style={styles.seccion}>
+              Bienvenido a tu casa
+            </Text>
 
-        <Text style={styles.textoSalir}>
-          Cerrar sesión
-        </Text>
+            <View style={styles.tarjeta}>
 
-      </TouchableOpacity>
+              <Ionicons
+                name="home-outline"
+                size={45}
+                color="#2563EB"
+              />
 
-      <Text style={styles.pie}>
-        Colonia Domótica Inteligente
-      </Text>
+              <Text style={styles.nombreCasa}>
+                Casa {casaAsignada + 1}
+              </Text>
 
-    </ScrollView>
+              <Text style={styles.estado}>
+                {cuentaDemo
+                  ? 'Cuenta de demostración'
+                  : 'Casa asignada al registrarte'}
+              </Text>
+
+              <Text style={styles.descripcion}>
+                Luz: {miCasa.luz ? 'Encendida' : 'Apagada'}
+              </Text>
+
+              <Text style={styles.descripcion}>
+                Puerta: {miCasa.puerta ? 'Abierta' : 'Cerrada'}
+              </Text>
+
+              <TouchableOpacity
+                style={styles.botonGrande}
+                onPress={() => setPestana('casa')}
+              >
+
+                <Ionicons
+                  name="options-outline"
+                  size={21}
+                  color="#FFFFFF"
+                />
+
+                <Text style={styles.textoBoton}>
+                  Controlar mi casa
+                </Text>
+
+              </TouchableOpacity>
+
+            </View>
+
+          </View>
+
+        )}
+
+
+        {/* USUARIO: VENTANA 2 - MI CASA */}
+
+        {rol === 'usuario' && pestana === 'casa' && (
+
+          <View>
+
+            <Text style={styles.seccion}>
+              Mi casa inteligente
+            </Text>
+
+            <Text style={styles.descripcion}>
+              Controla únicamente tu vivienda.
+            </Text>
+
+            {mostrarCasa(casaAsignada)}
+
+          </View>
+
+        )}
+
+
+        {/* USUARIO: VENTANA 3 - MI PERFIL */}
+
+        {rol === 'usuario' && pestana === 'perfil' && (
+
+          <View>
+
+            <Text style={styles.seccion}>
+              Mi perfil
+            </Text>
+
+            <View style={styles.tarjeta}>
+
+              <Ionicons
+                name="person-circle-outline"
+                size={67}
+                color="#2563EB"
+              />
+
+              <Text style={styles.nombreCasa}>
+                {perfil
+                  ? perfil.nombre
+                  : 'Usuario de prueba'}
+              </Text>
+
+              <Text style={styles.descripcion}>
+                Usuario: {usuario}
+              </Text>
+
+              <Text style={styles.descripcion}>
+                Tipo de cuenta: Usuario normal
+              </Text>
+
+              <Text style={styles.descripcion}>
+                Casa: {casaAsignada + 1}
+              </Text>
+
+              <TouchableOpacity
+                style={[
+                  styles.botonGrande,
+                  styles.salir
+                ]}
+                onPress={cerrarSesion}
+              >
+
+                <Ionicons
+                  name="log-out-outline"
+                  size={21}
+                  color="#FFFFFF"
+                />
+
+                <Text style={styles.textoBoton}>
+                  Cerrar sesión
+                </Text>
+
+              </TouchableOpacity>
+
+            </View>
+
+          </View>
+
+        )}
+
+      </ScrollView>
+
+
+      {/* BARRA DE NAVEGACION INFERIOR */}
+
+      <View style={styles.barra}>
+
+        {menu.map(item => (
+
+          <TouchableOpacity
+            key={item.id}
+            style={[
+              styles.pestana,
+              pestana === item.id && styles.pestanaActiva
+            ]}
+            onPress={() => setPestana(item.id)}
+          >
+
+            <Ionicons
+              name={item.icono}
+              size={24}
+              color={
+                pestana === item.id
+                  ? '#2563EB'
+                  : '#94A3B8'
+              }
+            />
+
+            <Text
+              style={[
+                styles.textoPestana,
+                pestana === item.id && styles.textoActivo
+              ]}
+            >
+              {item.titulo}
+            </Text>
+
+          </TouchableOpacity>
+
+        ))}
+
+      </View>
+
+    </View>
   );
 }
+
 
 // ESTILOS
 
@@ -633,108 +1112,94 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDF4FF'
   },
 
+  scroll: {
+    flex: 1
+  },
+
   contenido: {
-    paddingHorizontal: 18,
-    paddingTop: 48,
-    paddingBottom: 35
+    padding: 20,
+    paddingTop: 40,
+    paddingBottom: 30
+  },
+
+  cargando: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12
   },
 
   encabezado: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25
+    marginBottom: 25,
+    gap: 12
   },
 
-  logoPrincipal: {
-    width: 75,
-    height: 75,
+  iconoTitulo: {
     backgroundColor: '#2563EB',
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 15
+    padding: 13,
+    borderRadius: 13
   },
 
   titulo: {
-    fontSize: 27,
-    fontWeight: 'bold',
-    color: '#1E3A8A',
-    textAlign: 'center'
-  },
-
-  subtitulo: {
-    fontSize: 15,
-    color: '#64748B',
-    textAlign: 'center',
-    marginTop: 6
-  },
-
-  encabezadoSeccion: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 12,
-    marginBottom: 15,
-    gap: 10
-  },
-
-  tituloSeccion: {
     fontSize: 21,
     fontWeight: 'bold',
     color: '#1E3A8A'
   },
 
+  seccion: {
+    fontSize: 24,
+    color: '#1E3A8A',
+    fontWeight: 'bold',
+    marginBottom: 16
+  },
+
+  descripcion: {
+    fontSize: 15,
+    color: '#64748B',
+    marginBottom: 13,
+    marginTop: 5
+  },
+
   tarjeta: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    borderRadius: 17,
     padding: 18,
-    marginBottom: 18,
-    elevation: 3,
-    shadowColor: '#000000',
-    shadowOpacity: 0.07,
-    shadowRadius: 6
+    marginBottom: 16,
+    elevation: 2
   },
 
   encabezadoCasa: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 14,
-    gap: 12
-  },
-
-  iconoCasa: {
-    width: 49,
-    height: 49,
-    backgroundColor: '#DBEAFE',
-    borderRadius: 13,
-    justifyContent: 'center',
-    alignItems: 'center'
-  },
-
-  flexible: {
-    flex: 1
+    gap: 12,
+    marginBottom: 12
   },
 
   nombreCasa: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1E3A8A'
+    color: '#1E3A8A',
+    marginTop: 7
   },
 
-  descripcion: {
-    color: '#64748B',
+  estado: {
     fontSize: 13,
-    marginTop: 3
+    color: '#64748B',
+    marginTop: 4
   },
 
   filaControl: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#EDF2F7',
-    paddingVertical: 15,
-    gap: 10
+    borderTopColor: '#E2E8F0',
+    paddingVertical: 14,
+    gap: 9
   },
 
-  iconoControl: {
+  fondoIcono: {
     width: 43,
     height: 43,
     backgroundColor: '#EFF6FF',
@@ -747,109 +1212,97 @@ const styles = StyleSheet.create({
     flex: 1
   },
 
-  nombreControl: {
+  tituloControl: {
     fontSize: 15,
     fontWeight: 'bold',
     color: '#334155'
   },
 
-  estadoControl: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4
-  },
-
-  botonControl: {
+  botonChico: {
     backgroundColor: '#2563EB',
-    borderRadius: 9,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
-    minWidth: 80,
-    alignItems: 'center'
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    minWidth: 78,
+    alignItems: 'center',
+    borderRadius: 9
   },
 
-  botonApagar: {
+  botonGris: {
     backgroundColor: '#475569'
   },
 
   textoBoton: {
-    fontSize: 13,
-    fontWeight: 'bold',
-    color: '#FFFFFF'
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold'
   },
 
-  botonTodos: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  botonGrande: {
     backgroundColor: '#2563EB',
-    borderRadius: 11,
-    padding: 15,
-    gap: 9,
-    marginTop: 12
-  },
-
-  botonTodosApagar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E2E8F0',
-    borderRadius: 11,
     padding: 15,
-    gap: 9,
-    marginTop: 10
-  },
-
-  textoBotonGrande: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: 'bold'
-  },
-
-  textoApagarTodos: {
-    color: '#334155',
-    fontSize: 15,
-    fontWeight: 'bold'
-  },
-
-  avisoUsuario: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#DBEAFE',
-    padding: 14,
-    borderRadius: 12,
+    borderRadius: 11,
     gap: 10,
-    marginBottom: 17
+    marginTop: 11
   },
 
-  textoAviso: {
+  salir: {
+    backgroundColor: '#DC2626'
+  },
+
+  resumen: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between'
+  },
+
+  dato: {
+    width: '48%',
+    backgroundColor: '#FFFFFF',
+    padding: 18,
+    borderRadius: 15,
+    marginBottom: 12
+  },
+
+  numero: {
+    fontSize: 27,
+    fontWeight: 'bold',
+    color: '#2563EB',
+    marginBottom: 6
+  },
+
+  barra: {
+    backgroundColor: '#FFFFFF',
+    flexDirection: 'row',
+    paddingTop: 9,
+    paddingBottom: 16,
+    paddingHorizontal: 9,
+    borderTopWidth: 1,
+    borderColor: '#E2E8F0'
+  },
+
+  pestana: {
     flex: 1,
-    color: '#1D4ED8',
-    fontSize: 14
-  },
-
-  botonSalir: {
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#DC2626',
-    borderRadius: 12,
-    padding: 16,
-    gap: 10,
-    marginTop: 10
+    padding: 9,
+    borderRadius: 12
   },
 
-  textoSalir: {
-    fontSize: 16,
-    color: '#FFFFFF',
+  pestanaActiva: {
+    backgroundColor: '#EFF6FF'
+  },
+
+  textoPestana: {
+    fontSize: 12,
+    color: '#94A3B8',
+    marginTop: 5,
     fontWeight: 'bold'
   },
 
-  pie: {
-    textAlign: 'center',
-    color: '#94A3B8',
-    fontSize: 12,
-    marginTop: 24
+  textoActivo: {
+    color: '#2563EB'
   }
 
 });
