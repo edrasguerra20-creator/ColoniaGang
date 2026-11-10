@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
   ScrollView,
   StyleSheet,
-  Alert,
+  StatusBar,
   ActivityIndicator,
-  StatusBar
+  Alert
 } from 'react-native';
 
 import {
@@ -21,19 +21,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import Login from './PANTALLAS/Login';
 import Registro from './PANTALLAS/Registro';
+import Chatbot from './PANTALLAS/Chatbot';
 
-const CLAVE_GUARDADO = '@ColoniaGang_Usuarios';
+const CLAVE = '@ColoniaGang_Usuarios';
 
-
-// COMPONENTE PARA LOS CONTROLES
+// COMPONENTE PARA CONTROLAR DISPOSITIVOS
 
 function Control({
+  nombre,
   icono,
   material = false,
-  titulo,
   activo,
-  textoOn,
-  textoOff,
+  textoActivo,
+  textoInactivo,
+  botonActivo,
+  botonInactivo,
   accion
 }) {
 
@@ -41,21 +43,10 @@ function Control({
     ? MaterialCommunityIcons
     : Ionicons;
 
-  let textoAccion;
-
-  if (titulo === 'Iluminación' || titulo.startsWith('Poste')) {
-    textoAccion = activo ? 'Apagar' : 'Encender';
-  } else if (titulo === 'Tendedero') {
-    textoAccion = activo ? 'Guardar' : 'Extender';
-  } else {
-    textoAccion = activo ? 'Cerrar' : 'Abrir';
-  }
-
   return (
+    <View style={styles.control}>
 
-    <View style={styles.filaControl}>
-
-      <View style={styles.fondoIcono}>
+      <View style={styles.iconoControl}>
         <Icono
           name={icono}
           size={25}
@@ -63,28 +54,30 @@ function Control({
         />
       </View>
 
-      <View style={styles.infoControl}>
+      <View style={styles.controlInfo}>
 
-        <Text style={styles.tituloControl}>
-          {titulo}
+        <Text style={styles.controlNombre}>
+          {nombre}
         </Text>
 
-        <Text style={styles.estado}>
-          {activo ? textoOn : textoOff}
+        <Text style={styles.controlEstado}>
+          {activo ? textoActivo : textoInactivo}
         </Text>
 
       </View>
 
       <TouchableOpacity
         style={[
-          styles.botonChico,
-          activo && styles.botonGris
+          styles.botonControl,
+          activo && styles.botonSecundario
         ]}
         onPress={accion}
       >
-        <Text style={styles.textoBoton}>
-          {textoAccion}
+
+        <Text style={styles.textoBlanco}>
+          {activo ? botonActivo : botonInactivo}
         </Text>
+
       </TouchableOpacity>
 
     </View>
@@ -99,20 +92,20 @@ export default function App() {
   // INICIO DE SESION
   const [usuario, setUsuario] = useState('');
   const [contrasena, setContrasena] = useState('');
-  const [rol, setRol] = useState('');
   const [tipoCuenta, setTipoCuenta] = useState('usuario');
+  const [rol, setRol] = useState('');
 
   // REGISTRO
   const [mostrarRegistro, setMostrarRegistro] = useState(false);
   const [cuentas, setCuentas] = useState([]);
   const [cargando, setCargando] = useState(true);
 
-  // CASA Y NAVEGACION
-  const [casaAsignada, setCasaAsignada] = useState(0);
-  const [cuentaDemo, setCuentaDemo] = useState(false);
+  // NAVEGACION
   const [pestana, setPestana] = useState('inicio');
+  const [casaAsignada, setCasaAsignada] = useState(0);
+  const [nombreSesion, setNombreSesion] = useState('');
 
-  // ESTADO DE LAS CUATRO CASAS
+  // CUATRO CASAS
   const [casas, setCasas] = useState([
     { luz: false, puerta: false, especial: false },
     { luz: false, puerta: false, especial: false },
@@ -120,30 +113,28 @@ export default function App() {
     { luz: false, puerta: false, especial: false }
   ]);
 
-  // ESTADO DE LOS SEIS POSTES
+  // SEIS POSTES
   const [postes, setPostes] = useState([
     false, false, false, false, false, false
   ]);
 
 
-  // CARGAR CUENTAS GUARDADAS
+  // CARGAR USUARIOS GUARDADOS
 
   useEffect(() => {
 
-    const cargarCuentas = async () => {
+    async function cargarUsuarios() {
 
       try {
 
-        const guardado = await AsyncStorage.getItem(
-          CLAVE_GUARDADO
-        );
+        const guardados = await AsyncStorage.getItem(CLAVE);
 
-        if (guardado) {
+        if (guardados) {
 
-          const datos = JSON.parse(guardado);
+          const lista = JSON.parse(guardados);
 
-          if (Array.isArray(datos)) {
-            setCuentas(datos);
+          if (Array.isArray(lista)) {
+            setCuentas(lista);
           }
         }
 
@@ -151,7 +142,7 @@ export default function App() {
 
         Alert.alert(
           'Aviso',
-          'No se pudieron cargar los registros guardados.'
+          'No se pudieron cargar los usuarios.'
         );
 
       } finally {
@@ -159,21 +150,21 @@ export default function App() {
         setCargando(false);
 
       }
-    };
+    }
 
-    cargarCuentas();
+    cargarUsuarios();
 
   }, []);
 
 
-  // IDENTIFICAR CASAS OCUPADAS
+  // CASAS QUE YA TIENEN RESIDENTE
 
   const casasOcupadas = cuentas.map(
-    persona => persona.casa
+    cuenta => cuenta.casa
   );
 
 
-  // REGISTRAR NUEVO USUARIO
+  // REGISTRO DE NUEVAS CUENTAS
 
   const registrarUsuario = async (
     nombre,
@@ -182,90 +173,71 @@ export default function App() {
     casaElegida
   ) => {
 
-    const nombreLimpio = nombre.trim();
-
     const usuarioLimpio = nuevoUsuario
       .trim()
       .toLowerCase();
 
-    if (!nombreLimpio || !usuarioLimpio || !nuevaContrasena) {
-
-      Alert.alert(
-        'Error',
-        'Completa todos los campos.'
-      );
-
+    if (
+      !nombre.trim() ||
+      !usuarioLimpio ||
+      !nuevaContrasena
+    ) {
+      Alert.alert('Error', 'Completa todos los campos.');
       return false;
     }
 
-    // COMPROBAR QUE EL USUARIO NO EXISTA
-
     const existe = cuentas.some(
-      persona => persona.usuario === usuarioLimpio
+      cuenta => cuenta.usuario === usuarioLimpio
     );
 
     if (
+      existe ||
       usuarioLimpio === 'admin' ||
-      usuarioLimpio === 'usuario' ||
-      existe
+      usuarioLimpio === 'usuario'
     ) {
-
       Alert.alert(
         'Error',
         'Ese nombre de usuario ya existe.'
       );
-
       return false;
     }
-
-    // COMPROBAR QUE LA CASA ESTE DISPONIBLE
 
     if (
       ![0, 1, 2, 3].includes(casaElegida) ||
       casasOcupadas.includes(casaElegida)
     ) {
-
       Alert.alert(
-        'Casa no disponible',
-        'Elige otra casa que esté libre.'
+        'Casa ocupada',
+        'Seleccioná una casa disponible.'
       );
-
       return false;
     }
 
-    // CREAR LA CUENTA
-
     const nuevaCuenta = {
-      nombre: nombreLimpio,
+      nombre: nombre.trim(),
       usuario: usuarioLimpio,
       contrasena: nuevaContrasena,
       casa: casaElegida
     };
 
-    const nuevasCuentas = [
-      ...cuentas,
-      nuevaCuenta
-    ];
-
-    // GUARDAR EN EL DISPOSITIVO
+    const listaNueva = [...cuentas, nuevaCuenta];
 
     try {
 
       await AsyncStorage.setItem(
-        CLAVE_GUARDADO,
-        JSON.stringify(nuevasCuentas)
+        CLAVE,
+        JSON.stringify(listaNueva)
       );
 
-      setCuentas(nuevasCuentas);
-
+      setCuentas(listaNueva);
       setUsuario(usuarioLimpio);
       setContrasena('');
       setTipoCuenta('usuario');
       setMostrarRegistro(false);
 
       Alert.alert(
-        'Registro exitoso',
-        `Se te asignó la Casa ${casaElegida + 1}.`
+        'Cuenta creada',
+        `¡Listo! Adquiriste la Casa ${casaElegida + 1}.`
       );
 
       return true;
@@ -276,7 +248,6 @@ export default function App() {
         'Error',
         'No se pudo guardar la cuenta.'
       );
-
       return false;
 
     }
@@ -287,37 +258,31 @@ export default function App() {
 
   const iniciarSesion = () => {
 
-    const nombreUsuario = usuario
-      .trim()
-      .toLowerCase();
+    const nombre = usuario.trim().toLowerCase();
 
-    if (!nombreUsuario || !contrasena) {
-
+    if (!nombre || !contrasena) {
       Alert.alert(
         'Error',
-        'Ingresa tu usuario y contraseña.'
+        'Ingresá tu usuario y contraseña.'
       );
-
       return;
     }
 
-    // CUENTA DEL ADMINISTRADOR
+    // ADMINISTRADOR DE PRUEBA
 
     if (tipoCuenta === 'admin') {
 
-      if (
-        nombreUsuario === 'admin' &&
-        contrasena === '1234'
-      ) {
+      if (nombre === 'admin' && contrasena === '1234') {
 
         setRol('admin');
+        setNombreSesion('Administrador');
         setPestana('inicio');
 
       } else {
 
         Alert.alert(
-          'Acceso denegado',
-          'Los datos del administrador son incorrectos.'
+          'Error',
+          'Datos del administrador incorrectos.'
         );
 
       }
@@ -325,59 +290,51 @@ export default function App() {
       return;
     }
 
-    // USUARIO DE DEMOSTRACION
-    // UTILIZA UNA CASA LIBRE, SIN RESERVARLA
+    // CUENTA DE PRUEBA
 
     if (
-      nombreUsuario === 'usuario' &&
+      nombre === 'usuario' &&
       contrasena === '1234'
     ) {
 
-      const libre = [0, 1, 2, 3].find(
+      const casaLibre = [0, 1, 2, 3].find(
         i => !casasOcupadas.includes(i)
       );
 
-      if (libre === undefined) {
-
+      if (casaLibre === undefined) {
         Alert.alert(
-          'Sin casas libres',
-          'Inicia sesión con una cuenta registrada.'
+          'Sin casas disponibles',
+          'Ingresá con una cuenta registrada.'
         );
-
         return;
       }
 
-      setCasaAsignada(libre);
-      setCuentaDemo(true);
       setRol('usuario');
+      setCasaAsignada(casaLibre);
+      setNombreSesion('Usuario de prueba');
       setPestana('inicio');
-
       return;
     }
 
-    // BUSCAR CUENTA REGISTRADA
+    // CUENTA REGISTRADA
 
     const encontrada = cuentas.find(
-      persona =>
-        persona.usuario === nombreUsuario &&
-        persona.contrasena === contrasena
+      cuenta =>
+        cuenta.usuario === nombre &&
+        cuenta.contrasena === contrasena
     );
 
     if (!encontrada) {
-
       Alert.alert(
         'Error',
         'Usuario o contraseña incorrectos.'
       );
-
       return;
     }
 
-    // ENTRAR A LA CASA ELEGIDA AL REGISTRARSE
-
-    setCasaAsignada(encontrada.casa);
-    setCuentaDemo(false);
     setRol('usuario');
+    setCasaAsignada(encontrada.casa);
+    setNombreSesion(encontrada.nombre);
     setPestana('inicio');
   };
 
@@ -385,89 +342,71 @@ export default function App() {
   // CERRAR SESION
 
   const cerrarSesion = () => {
-
     setRol('');
     setUsuario('');
     setContrasena('');
     setTipoCuenta('usuario');
     setPestana('inicio');
-    setCuentaDemo(false);
-
+    setNombreSesion('');
   };
 
 
-  // ENCENDER O APAGAR COMPONENTES DE LAS CASAS
+  // CONTROLAR DISPOSITIVOS DE LAS CASAS
 
-  const cambiarEstado = (numeroCasa, componente) => {
-
-    // EL USUARIO NORMAL SOLO CONTROLA SU CASA
+  const cambiarCasa = (numero, componente) => {
 
     if (
       rol !== 'admin' &&
-      (
-        rol !== 'usuario' ||
-        casaAsignada !== numeroCasa
-      )
+      !(rol === 'usuario' && numero === casaAsignada)
     ) {
       return;
     }
 
     setCasas(anteriores =>
-      anteriores.map((casa, i) => {
-
-        if (i === numeroCasa) {
-
-          return {
-            ...casa,
-            [componente]: !casa[componente]
-          };
-
-        }
-
-        return casa;
-
-      })
+      anteriores.map((casa, i) =>
+        i === numero
+          ? {
+              ...casa,
+              [componente]: !casa[componente]
+            }
+          : casa
+      )
     );
-
   };
 
 
-  // ENCENDER O APAGAR POSTES
+  // CONTROLAR POSTES
 
-  const cambiarPoste = (numeroPoste) => {
+  const cambiarPoste = numero => {
 
     if (rol !== 'admin') {
       return;
     }
 
     setPostes(anteriores =>
-      anteriores.map((estado, i) =>
-        i === numeroPoste ? !estado : estado
+      anteriores.map((encendido, i) =>
+        i === numero ? !encendido : encendido
       )
     );
   };
 
 
-  // MOSTRAR LOS CONTROLES DE UNA CASA
+  // MOSTRAR UNA CASA
 
-  const mostrarCasa = (numeroCasa) => {
+  const mostrarCasa = numero => {
 
-    const casa = casas[numeroCasa];
+    const casa = casas[numero];
 
-    const ventana = numeroCasa < 2;
+    const tieneVentana = numero < 2;
 
-    const propietaria = cuentas.find(
-      persona => persona.casa === numeroCasa
+    const residente = cuentas.find(
+      cuenta => cuenta.casa === numero
     );
 
     return (
+      <View style={styles.tarjeta} key={numero}>
 
-      <View
-        style={styles.tarjeta}
-        key={numeroCasa}
-      >
-
-        <View style={styles.encabezadoCasa}>
+        <View style={styles.tituloCasa}>
 
           <Ionicons
             name="home-outline"
@@ -475,135 +414,111 @@ export default function App() {
             color="#2563EB"
           />
 
-          <View style={styles.infoControl}>
+          <View style={{ flex: 1 }}>
 
-            <Text style={styles.nombreCasa}>
-              Casa {numeroCasa + 1}
-              {numeroCasa === 3 ? ' Premium' : ''}
+            <Text style={styles.tituloTarjeta}>
+              Casa {numero + 1}
+              {numero === 3 ? ' Premium' : ''}
             </Text>
 
-            <Text style={styles.estado}>
-
+            <Text style={styles.descripcion}>
               {rol === 'admin'
-                ? (
-                    propietaria
-                      ? `Adquirida por: ${propietaria.nombre}`
-                      : 'Disponible'
-                  )
+                ? residente
+                  ? `Residente: ${residente.nombre}`
+                  : 'Disponible'
                 : 'Tu vivienda asignada'}
-
             </Text>
 
           </View>
 
         </View>
 
-        {/* LUZ */}
-
         <Control
+          nombre="Iluminación"
           icono={casa.luz ? 'bulb' : 'bulb-outline'}
-          titulo="Iluminación"
           activo={casa.luz}
-          textoOn="Encendida"
-          textoOff="Apagada"
-          accion={() =>
-            cambiarEstado(numeroCasa, 'luz')
-          }
+          textoActivo="Encendida"
+          textoInactivo="Apagada"
+          botonActivo="Apagar"
+          botonInactivo="Encender"
+          accion={() => cambiarCasa(numero, 'luz')}
         />
 
-        {/* PUERTA */}
-
         <Control
+          nombre="Puerta"
+          icono={casa.puerta ? 'door-open' : 'door-closed'}
           material={true}
-          icono={
-            casa.puerta ? 'door-open' : 'door-closed'
-          }
-          titulo="Puerta"
           activo={casa.puerta}
-          textoOn="Abierta"
-          textoOff="Cerrada"
-          accion={() =>
-            cambiarEstado(numeroCasa, 'puerta')
-          }
+          textoActivo="Abierta"
+          textoInactivo="Cerrada"
+          botonActivo="Cerrar"
+          botonInactivo="Abrir"
+          accion={() => cambiarCasa(numero, 'puerta')}
         />
 
-        {/* VENTANA O TENDEDERO */}
-
         <Control
-          material={ventana}
+          nombre={tieneVentana ? 'Ventana' : 'Tendedero'}
           icono={
-            ventana
-              ? (
-                  casa.especial
-                    ? 'window-open'
-                    : 'window-closed'
-                )
+            tieneVentana
+              ? casa.especial
+                ? 'window-open'
+                : 'window-closed'
               : 'shirt-outline'
           }
-          titulo={ventana ? 'Ventana' : 'Tendedero'}
+          material={tieneVentana}
           activo={casa.especial}
-          textoOn={
-            ventana ? 'Abierta' : 'Extendido'
+          textoActivo={
+            tieneVentana ? 'Abierta' : 'Extendido'
           }
-          textoOff={
-            ventana ? 'Cerrada' : 'Guardado'
+          textoInactivo={
+            tieneVentana ? 'Cerrada' : 'Guardado'
           }
-          accion={() =>
-            cambiarEstado(numeroCasa, 'especial')
+          botonActivo={
+            tieneVentana ? 'Cerrar' : 'Guardar'
           }
+          botonInactivo={
+            tieneVentana ? 'Abrir' : 'Extender'
+          }
+          accion={() => cambiarCasa(numero, 'especial')}
         />
 
       </View>
-
     );
   };
 
 
-  // PANTALLA DE CARGA
+  // ESPERAR A QUE SE CARGUEN LOS REGISTROS
 
   if (cargando) {
-
     return (
-
-      <View style={styles.cargando}>
-
+      <View style={styles.centrado}>
         <ActivityIndicator
           size="large"
           color="#2563EB"
         />
-
-        <Text style={styles.estado}>
-          Cargando colonia...
-        </Text>
-
+        <Text>Cargando colonia...</Text>
       </View>
-
     );
   }
 
 
-  // REGISTRO
+  // PANTALLA DE REGISTRO
 
   if (rol === '' && mostrarRegistro) {
-
     return (
-
       <Registro
         registrar={registrarUsuario}
         casasOcupadas={casasOcupadas}
         volver={() => setMostrarRegistro(false)}
       />
-
     );
   }
 
 
-  // INICIO DE SESION
+  // PANTALLA DE LOGIN
 
   if (rol === '') {
-
     return (
-
       <Login
         usuario={usuario}
         setUsuario={setUsuario}
@@ -614,83 +529,42 @@ export default function App() {
         iniciarSesion={iniciarSesion}
         irRegistro={() => setMostrarRegistro(true)}
       />
-
     );
   }
 
 
-  // INFORMACION DEL USUARIO
+  // DATOS PARA EL PANEL
 
-  const perfil = cuentas.find(
-    persona =>
-      persona.usuario === usuario.trim().toLowerCase()
-  );
-
-
-  // OPCIONES DE NAVEGACION
-
-  const menu = rol === 'admin'
-
-    ? [
-        {
-          id: 'inicio',
-          titulo: 'Inicio',
-          icono: 'grid-outline'
-        },
-        {
-          id: 'casas',
-          titulo: 'Casas',
-          icono: 'home-outline'
-        },
-        {
-          id: 'postes',
-          titulo: 'Postes',
-          icono: 'bulb-outline'
-        }
-      ]
-
-    : [
-        {
-          id: 'inicio',
-          titulo: 'Inicio',
-          icono: 'home-outline'
-        },
-        {
-          id: 'casa',
-          titulo: 'Mi casa',
-          icono: 'options-outline'
-        },
-        {
-          id: 'perfil',
-          titulo: 'Mi perfil',
-          icono: 'person-outline'
-        }
-      ];
-
-
-  // RESUMEN DE LA COLONIA
-
-  const miCasa = casas[casaAsignada];
-
-  const lucesActivas = casas.filter(
+  const lucesEncendidas = casas.filter(
     casa => casa.luz
   ).length;
 
-  const postesActivos = postes.filter(
-    estado => estado
-  ).length;
+  const postesEncendidos = postes.filter(Boolean).length;
+
+  const miCasa = casas[casaAsignada];
+
+  const menu = rol === 'admin'
+    ? [
+        { id: 'inicio', nombre: 'Inicio', icono: 'grid-outline' },
+        { id: 'casas', nombre: 'Casas', icono: 'home-outline' },
+        { id: 'postes', nombre: 'Postes', icono: 'bulb-outline' }
+      ]
+    : [
+        { id: 'inicio', nombre: 'Inicio', icono: 'home-outline' },
+        { id: 'casa', nombre: 'Mi casa', icono: 'options-outline' },
+        { id: 'perfil', nombre: 'Mi perfil', icono: 'person-outline' }
+      ];
 
 
-  // PANTALLA PRINCIPAL
+  // PANTALLA PRINCIPAL CON CHATBOT INTEGRADO
 
   return (
-
     <View style={styles.fondo}>
 
       <StatusBar barStyle="dark-content" />
 
       <ScrollView
-        style={styles.scroll}
+        style={{ flex: 1 }}
         contentContainerStyle={styles.contenido}
       >
 
@@ -698,48 +572,40 @@ export default function App() {
 
         <View style={styles.encabezado}>
 
-          <View style={styles.iconoTitulo}>
-
+          <View style={styles.logo}>
             <Ionicons
-              name={
-                rol === 'admin'
-                  ? 'shield-checkmark-outline'
-                  : 'home-outline'
-              }
-              size={29}
+              name="home-outline"
+              size={28}
               color="#FFFFFF"
             />
-
           </View>
 
-          <View style={styles.infoControl}>
+          <View style={{ flex: 1 }}>
 
             <Text style={styles.titulo}>
               Colonia Domótica
             </Text>
 
-            <Text style={styles.estado}>
+            <Text style={styles.descripcion}>
               {rol === 'admin'
-                ? 'Panel del administrador'
-                : 'Panel del residente'}
+                ? 'Panel de administrador'
+                : `Bienvenido, ${nombreSesion}`}
             </Text>
 
           </View>
 
           <TouchableOpacity onPress={cerrarSesion}>
-
             <Ionicons
               name="log-out-outline"
               size={27}
               color="#DC2626"
             />
-
           </TouchableOpacity>
 
         </View>
 
 
-        {/* ADMINISTRADOR: VENTANA 1 - INICIO */}
+        {/* ADMIN - INICIO */}
 
         {rol === 'admin' && pestana === 'inicio' && (
 
@@ -753,28 +619,34 @@ export default function App() {
 
               <View style={styles.dato}>
                 <Text style={styles.numero}>4</Text>
-                <Text>Casas</Text>
+                <Text style={styles.descripcion}>Casas</Text>
               </View>
 
               <View style={styles.dato}>
                 <Text style={styles.numero}>
                   {cuentas.length}
                 </Text>
-                <Text>Ocupadas</Text>
+                <Text style={styles.descripcion}>
+                  Ocupadas
+                </Text>
               </View>
 
               <View style={styles.dato}>
                 <Text style={styles.numero}>
-                  {lucesActivas}
+                  {lucesEncendidas}
                 </Text>
-                <Text>Luces encendidas</Text>
+                <Text style={styles.descripcion}>
+                  Luces encendidas
+                </Text>
               </View>
 
               <View style={styles.dato}>
                 <Text style={styles.numero}>
-                  {postesActivos}
+                  {postesEncendidos}
                 </Text>
-                <Text>Postes encendidos</Text>
+                <Text style={styles.descripcion}>
+                  Postes encendidos
+                </Text>
               </View>
 
             </View>
@@ -783,34 +655,28 @@ export default function App() {
               style={styles.botonGrande}
               onPress={() => setPestana('casas')}
             >
-
               <Ionicons
                 name="home-outline"
                 size={21}
                 color="#FFFFFF"
               />
-
-              <Text style={styles.textoBoton}>
+              <Text style={styles.textoBlanco}>
                 Administrar casas
               </Text>
-
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.botonGrande}
               onPress={() => setPestana('postes')}
             >
-
               <Ionicons
                 name="bulb-outline"
                 size={21}
                 color="#FFFFFF"
               />
-
-              <Text style={styles.textoBoton}>
+              <Text style={styles.textoBlanco}>
                 Controlar postes
               </Text>
-
             </TouchableOpacity>
 
           </View>
@@ -818,7 +684,7 @@ export default function App() {
         )}
 
 
-        {/* ADMINISTRADOR: VENTANA 2 - CASAS */}
+        {/* ADMIN - CASAS */}
 
         {rol === 'admin' && pestana === 'casas' && (
 
@@ -828,10 +694,6 @@ export default function App() {
               Casas inteligentes
             </Text>
 
-            <Text style={styles.descripcion}>
-              Controla las cuatro viviendas.
-            </Text>
-
             {casas.map((casa, i) => mostrarCasa(i))}
 
           </View>
@@ -839,7 +701,7 @@ export default function App() {
         )}
 
 
-        {/* ADMINISTRADOR: VENTANA 3 - POSTES */}
+        {/* ADMIN - POSTES */}
 
         {rol === 'admin' && pestana === 'postes' && (
 
@@ -855,13 +717,15 @@ export default function App() {
 
                 <Control
                   key={i}
+                  nombre={`Poste ${i + 1}`}
                   icono={
                     encendido ? 'bulb' : 'bulb-outline'
                   }
-                  titulo={`Poste ${i + 1}`}
                   activo={encendido}
-                  textoOn="Encendido"
-                  textoOff="Apagado"
+                  textoActivo="Encendido"
+                  textoInactivo="Apagado"
+                  botonActivo="Apagar"
+                  botonInactivo="Encender"
                   accion={() => cambiarPoste(i)}
                 />
 
@@ -873,17 +737,9 @@ export default function App() {
                   setPostes(Array(6).fill(true))
                 }
               >
-
-                <Ionicons
-                  name="flash-outline"
-                  size={21}
-                  color="#FFFFFF"
-                />
-
-                <Text style={styles.textoBoton}>
+                <Text style={styles.textoBlanco}>
                   Encender todos
                 </Text>
-
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -892,17 +748,9 @@ export default function App() {
                   setPostes(Array(6).fill(false))
                 }
               >
-
-                <Ionicons
-                  name="power-outline"
-                  size={21}
-                  color="#FFFFFF"
-                />
-
-                <Text style={styles.textoBoton}>
+                <Text style={styles.textoBlanco}>
                   Apagar todos
                 </Text>
-
               </TouchableOpacity>
 
             </View>
@@ -912,32 +760,26 @@ export default function App() {
         )}
 
 
-        {/* USUARIO: VENTANA 1 - INICIO */}
+        {/* RESIDENTE - INICIO */}
 
         {rol === 'usuario' && pestana === 'inicio' && (
 
           <View>
 
             <Text style={styles.seccion}>
-              Bienvenido a tu casa
+              Mi vivienda inteligente
             </Text>
 
             <View style={styles.tarjeta}>
 
               <Ionicons
                 name="home-outline"
-                size={45}
+                size={44}
                 color="#2563EB"
               />
 
-              <Text style={styles.nombreCasa}>
+              <Text style={styles.tituloTarjeta}>
                 Casa {casaAsignada + 1}
-              </Text>
-
-              <Text style={styles.estado}>
-                {cuentaDemo
-                  ? 'Cuenta de demostración'
-                  : 'Casa asignada al registrarte'}
               </Text>
 
               <Text style={styles.descripcion}>
@@ -959,7 +801,7 @@ export default function App() {
                   color="#FFFFFF"
                 />
 
-                <Text style={styles.textoBoton}>
+                <Text style={styles.textoBlanco}>
                   Controlar mi casa
                 </Text>
 
@@ -972,18 +814,14 @@ export default function App() {
         )}
 
 
-        {/* USUARIO: VENTANA 2 - MI CASA */}
+        {/* RESIDENTE - MI CASA */}
 
         {rol === 'usuario' && pestana === 'casa' && (
 
           <View>
 
             <Text style={styles.seccion}>
-              Mi casa inteligente
-            </Text>
-
-            <Text style={styles.descripcion}>
-              Controla únicamente tu vivienda.
+              Controles de mi casa
             </Text>
 
             {mostrarCasa(casaAsignada)}
@@ -993,7 +831,7 @@ export default function App() {
         )}
 
 
-        {/* USUARIO: VENTANA 3 - MI PERFIL */}
+        {/* RESIDENTE - PERFIL */}
 
         {rol === 'usuario' && pestana === 'perfil' && (
 
@@ -1007,14 +845,12 @@ export default function App() {
 
               <Ionicons
                 name="person-circle-outline"
-                size={67}
+                size={60}
                 color="#2563EB"
               />
 
-              <Text style={styles.nombreCasa}>
-                {perfil
-                  ? perfil.nombre
-                  : 'Usuario de prueba'}
+              <Text style={styles.tituloTarjeta}>
+                {nombreSesion}
               </Text>
 
               <Text style={styles.descripcion}>
@@ -1022,17 +858,17 @@ export default function App() {
               </Text>
 
               <Text style={styles.descripcion}>
-                Tipo de cuenta: Usuario normal
+                Rol: Residente
               </Text>
 
               <Text style={styles.descripcion}>
-                Casa: {casaAsignada + 1}
+                Casa asignada: {casaAsignada + 1}
               </Text>
 
               <TouchableOpacity
                 style={[
                   styles.botonGrande,
-                  styles.salir
+                  { backgroundColor: '#DC2626' }
                 ]}
                 onPress={cerrarSesion}
               >
@@ -1043,7 +879,7 @@ export default function App() {
                   color="#FFFFFF"
                 />
 
-                <Text style={styles.textoBoton}>
+                <Text style={styles.textoBlanco}>
                   Cerrar sesión
                 </Text>
 
@@ -1058,7 +894,7 @@ export default function App() {
       </ScrollView>
 
 
-      {/* BARRA DE NAVEGACION INFERIOR */}
+      {/* BARRA DE NAVEGACION */}
 
       <View style={styles.barra}>
 
@@ -1089,7 +925,7 @@ export default function App() {
                 pestana === item.id && styles.textoActivo
               ]}
             >
-              {item.titulo}
+              {item.nombre}
             </Text>
 
           </TouchableOpacity>
@@ -1097,6 +933,16 @@ export default function App() {
         ))}
 
       </View>
+
+
+      {/* DOMOTIBOT - VISIBLE EN TODAS LAS PANTALLAS */}
+
+      <Chatbot
+        rol={rol}
+        casas={casas}
+        postes={postes}
+        casaAsignada={casaAsignada}
+      />
 
     </View>
   );
@@ -1112,17 +958,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#EDF4FF'
   },
 
-  scroll: {
-    flex: 1
-  },
-
   contenido: {
-    padding: 20,
+    padding: 18,
     paddingTop: 40,
-    paddingBottom: 30
+    paddingBottom: 100
   },
 
-  cargando: {
+  centrado: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
@@ -1136,102 +978,101 @@ const styles = StyleSheet.create({
     gap: 12
   },
 
-  iconoTitulo: {
+  logo: {
     backgroundColor: '#2563EB',
-    padding: 13,
-    borderRadius: 13
+    padding: 12,
+    borderRadius: 14
   },
 
   titulo: {
+    color: '#1E3A8A',
     fontSize: 21,
-    fontWeight: 'bold',
-    color: '#1E3A8A'
+    fontWeight: 'bold'
   },
 
   seccion: {
-    fontSize: 24,
     color: '#1E3A8A',
+    fontSize: 23,
     fontWeight: 'bold',
-    marginBottom: 16
+    marginBottom: 15
   },
 
   descripcion: {
-    fontSize: 15,
     color: '#64748B',
-    marginBottom: 13,
+    fontSize: 13,
     marginTop: 5
   },
 
   tarjeta: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 17,
-    padding: 18,
-    marginBottom: 16,
+    padding: 17,
+    borderRadius: 16,
+    marginBottom: 15,
     elevation: 2
   },
 
-  encabezadoCasa: {
+  tituloCasa: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     marginBottom: 12
   },
 
-  nombreCasa: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  tituloTarjeta: {
     color: '#1E3A8A',
-    marginTop: 7
+    fontSize: 19,
+    fontWeight: 'bold',
+    marginTop: 6
   },
 
-  estado: {
-    fontSize: 13,
-    color: '#64748B',
-    marginTop: 4
-  },
-
-  filaControl: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  control: {
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
-    paddingVertical: 14,
-    gap: 9
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    gap: 8
   },
 
-  fondoIcono: {
-    width: 43,
-    height: 43,
+  iconoControl: {
     backgroundColor: '#EFF6FF',
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center'
   },
 
-  infoControl: {
+  controlInfo: {
     flex: 1
   },
 
-  tituloControl: {
-    fontSize: 15,
+  controlNombre: {
+    color: '#334155',
     fontWeight: 'bold',
-    color: '#334155'
+    fontSize: 14
   },
 
-  botonChico: {
+  controlEstado: {
+    color: '#64748B',
+    fontSize: 12,
+    marginTop: 3
+  },
+
+  botonControl: {
     backgroundColor: '#2563EB',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    minWidth: 78,
-    alignItems: 'center',
-    borderRadius: 9
+    paddingVertical: 11,
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    minWidth: 75,
+    alignItems: 'center'
   },
 
-  botonGris: {
+  botonSecundario: {
     backgroundColor: '#475569'
   },
 
-  textoBoton: {
+  textoBlanco: {
     color: '#FFFFFF',
     fontSize: 14,
     fontWeight: 'bold'
@@ -1239,17 +1080,13 @@ const styles = StyleSheet.create({
 
   botonGrande: {
     backgroundColor: '#2563EB',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     padding: 15,
     borderRadius: 11,
-    gap: 10,
-    marginTop: 11
-  },
-
-  salir: {
-    backgroundColor: '#DC2626'
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 9,
+    marginTop: 12
   },
 
   resumen: {
@@ -1259,28 +1096,26 @@ const styles = StyleSheet.create({
   },
 
   dato: {
-    width: '48%',
     backgroundColor: '#FFFFFF',
-    padding: 18,
-    borderRadius: 15,
+    padding: 17,
+    borderRadius: 14,
+    width: '48%',
     marginBottom: 12
   },
 
   numero: {
-    fontSize: 27,
-    fontWeight: 'bold',
     color: '#2563EB',
-    marginBottom: 6
+    fontSize: 27,
+    fontWeight: 'bold'
   },
 
   barra: {
-    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
-    paddingTop: 9,
-    paddingBottom: 16,
-    paddingHorizontal: 9,
+    backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
-    borderColor: '#E2E8F0'
+    borderTopColor: '#E2E8F0',
+    paddingTop: 10,
+    paddingBottom: 15
   },
 
   pestana: {
@@ -1295,10 +1130,10 @@ const styles = StyleSheet.create({
   },
 
   textoPestana: {
-    fontSize: 12,
     color: '#94A3B8',
-    marginTop: 5,
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    fontSize: 12,
+    marginTop: 4
   },
 
   textoActivo: {
