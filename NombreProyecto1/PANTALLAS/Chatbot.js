@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 // DIRECCION DEL SERVIDOR EN TU COMPUTADORA
 // CAMBIA LA IP SI TU COMPUTADORA TIENE OTRA
 
-const URL_API = 'http://192.168.0.13:3001/chat';
+const URL_API = 'http://192.168.0.15:3001/chat';
 
 
 export default function Chatbot({
@@ -40,7 +40,7 @@ export default function Chatbot({
     {
       role: 'assistant',
       content:
-        '¡Qué onda, vos! Soy DomotiBot IA, el asistente inteligente de Colonia Domótica. Podés preguntarme sobre tu casa, tecnología o cualquier tema educativo.'
+        '¡Hola! Soy DomotiBot IA, el asistente inteligente de Colonia Domótica. Podés preguntarme sobre tu casa, tecnología o cualquier tema educativo.'
     }
   ]);
 
