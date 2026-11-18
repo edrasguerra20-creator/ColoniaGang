@@ -5,7 +5,7 @@ const { SerialPort } = require('serialport');
 const PUERTO_SERVIDOR = 3002;
 
 // CAMBIA COM3 POR EL PUERTO DE TU ARDUINO
-const PUERTO_ARDUINO = 'COM3';
+const PUERTO_ARDUINO = 'COM4';
 
 const arduino = new SerialPort({
   path: PUERTO_ARDUINO,

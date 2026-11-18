@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 // DIRECCION DEL SERVIDOR EN TU COMPUTADORA
 // CAMBIA LA IP SI TU COMPUTADORA TIENE OTRA
 
-const URL_API = 'http://192.168.0.15:3001/chat';
+const URL_API = 'http://192.168.0.10:3001/chat';
 
 
 export default function Chatbot({
