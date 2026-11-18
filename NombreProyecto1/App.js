@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -48,7 +47,7 @@ function descripcionControlCasa(numero, componente, encendido) {
 // IMPORTANTE:
 // COLOCA AQUI LA IP ACTUAL DE TU COMPUTADORA.
 // USA LA MISMA IP CON LA QUE YA TE FUNCIONO.
-const URL_CASA1 = 'http://192.168.0.15:3002';
+const URL_CASA1 = 'http://192.168.0.8:3002';
 
 // COMPONENTE DE CONTROL
 function Control({
@@ -75,7 +74,7 @@ function Control({
         <Icono
           name={icono}
           size={25}
-          color="#2563EB"
+          color="#38BDF8"
         />
       </View>
 
@@ -648,7 +647,7 @@ export default function App() {
           <Ionicons
             name="home-outline"
             size={29}
-            color="#2563EB"
+            color="#38BDF8"
           />
 
           <View style={{ flex: 1 }}>
@@ -677,7 +676,7 @@ export default function App() {
             <Ionicons
               name="hardware-chip-outline"
               size={19}
-              color="#1D4ED8"
+              color="#7DD3FC"
             />
 
             <Text style={styles.textoAvisoCasaFisica}>
@@ -757,7 +756,7 @@ export default function App() {
             {enviandoCasa1 && (
               <ActivityIndicator
                 size="small"
-                color="#2563EB"
+                color="#38BDF8"
                 style={{ marginTop: 12 }}
               />
             )}
@@ -792,7 +791,7 @@ export default function App() {
 
         <ActivityIndicator
           size="large"
-          color="#2563EB"
+          color="#38BDF8"
         />
 
         <Text>Cargando colonia...</Text>
@@ -858,7 +857,7 @@ export default function App() {
   return (
     <View style={styles.fondo}>
 
-      <StatusBar barStyle="dark-content" />
+      <StatusBar barStyle="light-content" backgroundColor="#080F1D" />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -1100,7 +1099,7 @@ export default function App() {
               <Ionicons
                 name="home-outline"
                 size={44}
-                color="#2563EB"
+                color="#38BDF8"
               />
 
               <Text style={styles.tituloTarjeta}>
@@ -1167,7 +1166,7 @@ export default function App() {
               <Ionicons
                 name="person-circle-outline"
                 size={60}
-                color="#2563EB"
+                color="#38BDF8"
               />
 
               <Text style={styles.tituloTarjeta}>
@@ -1233,7 +1232,7 @@ export default function App() {
               size={24}
               color={
                 pestana === item.id
-                  ? '#2563EB'
+                  ? '#7DD3FC'
                   : '#94A3B8'
               }
             />
@@ -1270,71 +1269,85 @@ const styles = StyleSheet.create({
 
   fondo: {
     flex: 1,
-    backgroundColor: '#EDF4FF'
+    backgroundColor: '#080F1D'
   },
 
   contenido: {
     padding: 18,
-    paddingTop: 40,
-    paddingBottom: 100
+    paddingTop: 44,
+    paddingBottom: 110
   },
 
   centrado: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 12
+    gap: 12,
+    backgroundColor: '#080F1D'
   },
 
   encabezado: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 25,
-    gap: 12
+    marginBottom: 28,
+    gap: 13,
+    backgroundColor: '#111C2E',
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#22334D'
   },
 
   logo: {
-    backgroundColor: '#2563EB',
-    padding: 12,
-    borderRadius: 14
+    backgroundColor: '#087EAA',
+    padding: 13,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: '#38BDF8'
   },
 
   titulo: {
-    color: '#1E3A8A',
+    color: '#F1F7FF',
     fontSize: 21,
     fontWeight: 'bold'
   },
 
   seccion: {
-    color: '#1E3A8A',
+    color: '#F1F7FF',
     fontSize: 23,
     fontWeight: 'bold',
-    marginBottom: 15
+    marginBottom: 16
   },
 
   descripcion: {
-    color: '#64748B',
+    color: '#9AAFC8',
     fontSize: 13,
     marginTop: 5
   },
 
   tarjeta: {
-    backgroundColor: '#FFFFFF',
-    padding: 17,
-    borderRadius: 16,
-    marginBottom: 15,
-    elevation: 2
+    backgroundColor: '#111C2E',
+    padding: 18,
+    borderRadius: 19,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#22334D',
+    elevation: 5,
+    shadowColor: '#000000',
+    shadowOpacity: 0.22,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 }
   },
 
   tituloCasa: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: 12
+    marginBottom: 14
   },
 
   tituloTarjeta: {
-    color: '#1E3A8A',
+    color: '#F1F7FF',
     fontSize: 19,
     fontWeight: 'bold',
     marginTop: 6
@@ -1342,20 +1355,22 @@ const styles = StyleSheet.create({
 
   control: {
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#26364D',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 13,
-    gap: 8
+    paddingVertical: 14,
+    gap: 9
   },
 
   iconoControl: {
-    backgroundColor: '#EFF6FF',
-    width: 42,
-    height: 42,
-    borderRadius: 10,
+    backgroundColor: '#102D43',
+    width: 44,
+    height: 44,
+    borderRadius: 13,
     alignItems: 'center',
-    justifyContent: 'center'
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#1D526F'
   },
 
   controlInfo: {
@@ -1363,62 +1378,68 @@ const styles = StyleSheet.create({
   },
 
   controlNombre: {
-    color: '#334155',
+    color: '#E7F0FC',
     fontWeight: 'bold',
     fontSize: 14
   },
 
   controlEstado: {
-    color: '#64748B',
+    color: '#91A6C0',
     fontSize: 12,
-    marginTop: 3
+    marginTop: 4
   },
 
   botonControl: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#087EAA',
     paddingVertical: 11,
-    paddingHorizontal: 9,
-    borderRadius: 9,
-    minWidth: 75,
-    alignItems: 'center'
+    paddingHorizontal: 12,
+    borderRadius: 11,
+    minWidth: 78,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#38BDF8'
   },
 
   botonSecundario: {
-    backgroundColor: '#475569'
+    backgroundColor: '#26364D',
+    borderColor: '#40536D'
   },
 
   botonDeshabilitado: {
-    opacity: 0.65
+    opacity: 0.55
   },
 
   avisoCasaFisica: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    padding: 10,
+    backgroundColor: '#102D43',
+    borderRadius: 12,
+    padding: 11,
     gap: 8,
-    marginBottom: 8
+    marginBottom: 9,
+    borderWidth: 1,
+    borderColor: '#1D526F'
   },
 
   textoAvisoCasaFisica: {
-    color: '#1D4ED8',
+    color: '#7DD3FC',
     fontWeight: 'bold',
     fontSize: 12,
     flex: 1
   },
 
   notaSimulacion: {
-    color: '#64748B',
+    color: '#91A6C0',
     fontSize: 12,
-    marginTop: 7,
-    marginBottom: 8
+    marginTop: 8,
+    marginBottom: 8,
+    lineHeight: 18
   },
 
   mensajeArduino: {
-    color: '#1E3A8A',
+    color: '#7DD3FC',
     fontSize: 13,
-    marginTop: 12,
+    marginTop: 13,
     fontWeight: 'bold'
   },
 
@@ -1429,14 +1450,16 @@ const styles = StyleSheet.create({
   },
 
   botonGrande: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#087EAA',
     padding: 15,
-    borderRadius: 11,
+    borderRadius: 13,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 9,
-    marginTop: 12
+    marginTop: 13,
+    borderWidth: 1,
+    borderColor: '#38BDF8'
   },
 
   resumen: {
@@ -1446,48 +1469,53 @@ const styles = StyleSheet.create({
   },
 
   dato: {
-    backgroundColor: '#FFFFFF',
-    padding: 17,
-    borderRadius: 14,
+    backgroundColor: '#111C2E',
+    padding: 18,
+    borderRadius: 17,
     width: '48%',
-    marginBottom: 12
+    marginBottom: 13,
+    borderWidth: 1,
+    borderColor: '#22334D'
   },
 
   numero: {
-    color: '#2563EB',
-    fontSize: 27,
+    color: '#38BDF8',
+    fontSize: 28,
     fontWeight: 'bold'
   },
 
   barra: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#0D1727',
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: '#26364D',
     paddingTop: 10,
-    paddingBottom: 15
+    paddingBottom: 15,
+    paddingHorizontal: 5
   },
 
   pestana: {
     flex: 1,
     alignItems: 'center',
     padding: 9,
-    borderRadius: 12
+    borderRadius: 13
   },
 
   pestanaActiva: {
-    backgroundColor: '#EFF6FF'
+    backgroundColor: '#12344B',
+    borderWidth: 1,
+    borderColor: '#1D526F'
   },
 
   textoPestana: {
-    color: '#94A3B8',
+    color: '#8295AE',
     fontWeight: 'bold',
     fontSize: 12,
     marginTop: 4
   },
 
   textoActivo: {
-    color: '#2563EB'
+    color: '#7DD3FC'
   }
 
 });
