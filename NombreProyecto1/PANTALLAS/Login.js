@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 import {
@@ -29,11 +28,7 @@ export default function Login({
       contentContainerStyle={styles.contenido}
       keyboardShouldPersistTaps="handled"
     >
-
-      {/* LOGO DE LA APLICACION */}
-
       <View style={styles.encabezado}>
-
         <View style={styles.circuloLogo}>
           <Ionicons
             name="home-outline"
@@ -49,13 +44,9 @@ export default function Login({
         <Text style={styles.subtitulo}>
           Sistema de Control Inteligente
         </Text>
-
       </View>
 
-      {/* FORMULARIO */}
-
       <View style={styles.tarjeta}>
-
         <Text style={styles.tituloFormulario}>
           Bienvenido
         </Text>
@@ -64,14 +55,11 @@ export default function Login({
           Inicia sesión para continuar
         </Text>
 
-        {/* SELECCIONAR TIPO DE CUENTA */}
-
         <Text style={styles.etiqueta}>
           Tipo de cuenta
         </Text>
 
         <View style={styles.filaRoles}>
-
           <TouchableOpacity
             style={[
               styles.botonRol,
@@ -79,21 +67,19 @@ export default function Login({
             ]}
             onPress={() => setTipoCuenta('admin')}
           >
-
             <Ionicons
               name="shield-checkmark-outline"
               size={26}
               color={
                 tipoCuenta === 'admin'
-                  ? '#2563EB'
-                  : '#64748B'
+                  ? '#35C8F4'
+                  : '#91A5BA'
               }
             />
 
             <Text style={styles.textoRol}>
               Administrador
             </Text>
-
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -103,83 +89,69 @@ export default function Login({
             ]}
             onPress={() => setTipoCuenta('usuario')}
           >
-
             <Ionicons
               name="person-outline"
               size={26}
               color={
                 tipoCuenta === 'usuario'
-                  ? '#2563EB'
-                  : '#64748B'
+                  ? '#35C8F4'
+                  : '#91A5BA'
               }
             />
 
             <Text style={styles.textoRol}>
               Usuario normal
             </Text>
-
           </TouchableOpacity>
-
         </View>
-
-        {/* USUARIO */}
 
         <Text style={styles.etiqueta}>
           Usuario
         </Text>
 
         <View style={styles.cajaEntrada}>
-
           <Ionicons
             name="person-outline"
             size={22}
-            color="#64748B"
+            color="#91A5BA"
           />
 
           <TextInput
             style={styles.entrada}
             placeholder="Ingresa tu usuario"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor="#8293A8"
             value={usuario}
             onChangeText={setUsuario}
             autoCapitalize="none"
             autoCorrect={false}
           />
-
         </View>
-
-        {/* CONTRASEÑA */}
 
         <Text style={styles.etiqueta}>
           Contraseña
         </Text>
 
         <View style={styles.cajaEntrada}>
-
           <Ionicons
             name="lock-closed-outline"
             size={22}
-            color="#64748B"
+            color="#91A5BA"
           />
 
           <TextInput
             style={styles.entrada}
             placeholder="Ingresa tu contraseña"
-            placeholderTextColor="#94A3B8"
+            placeholderTextColor="#8293A8"
             value={contrasena}
             onChangeText={setContrasena}
             secureTextEntry={true}
           />
-
         </View>
-
-        {/* BOTON INICIAR SESION */}
 
         <TouchableOpacity
           style={styles.botonIngresar}
           onPress={iniciarSesion}
         >
-
           <Ionicons
             name="log-in-outline"
             size={23}
@@ -189,49 +161,43 @@ export default function Login({
           <Text style={styles.textoIngresar}>
             Iniciar sesión
           </Text>
-
         </TouchableOpacity>
-
-        {/* REGISTRARSE */}
 
         <TouchableOpacity
           style={styles.botonRegistro}
           onPress={irRegistro}
         >
-
           <Ionicons
             name="person-add-outline"
             size={20}
-            color="#2563EB"
+            color="#35C8F4"
           />
 
           <Text style={styles.textoRegistro}>
             Crear una cuenta nueva
           </Text>
-
         </TouchableOpacity>
-
       </View>
 
       <Text style={styles.pie}>
         Colonia Domótica Inteligente
       </Text>
-
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-
   fondo: {
     flex: 1,
-    backgroundColor: '#EDF4FF'
+    backgroundColor: '#081321'
   },
 
   contenido: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 22
+    padding: 22,
+    paddingTop: 42,
+    paddingBottom: 35
   },
 
   encabezado: {
@@ -240,58 +206,62 @@ const styles = StyleSheet.create({
   },
 
   circuloLogo: {
-    width: 85,
-    height: 85,
-    backgroundColor: '#2563EB',
-    borderRadius: 24,
+    width: 88,
+    height: 88,
+    backgroundColor: '#123B59',
+    borderRadius: 27,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 17
+    marginBottom: 17,
+    borderWidth: 1,
+    borderColor: '#24799A'
   },
 
   titulo: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1E3A8A',
+    fontSize: 29,
+    fontWeight: '800',
+    color: '#F3F8FC',
     textAlign: 'center'
   },
 
   subtitulo: {
-    color: '#64748B',
-    fontSize: 15,
-    marginTop: 6,
+    color: '#91A5BA',
+    fontSize: 14,
+    marginTop: 7,
     textAlign: 'center'
   },
 
   tarjeta: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    backgroundColor: '#111F31',
+    borderRadius: 23,
     padding: 22,
-    elevation: 5,
-    shadowColor: '#000000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8
+    borderWidth: 1,
+    borderColor: '#20354B',
+    elevation: 7,
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowRadius: 14
   },
 
   tituloFormulario: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E3A8A',
+    fontWeight: '800',
+    color: '#F3F8FC',
     textAlign: 'center'
   },
 
   descripcion: {
     fontSize: 14,
-    color: '#64748B',
+    color: '#91A5BA',
     textAlign: 'center',
-    marginTop: 5,
-    marginBottom: 26
+    marginTop: 6,
+    marginBottom: 25
   },
 
   etiqueta: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#334155',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#D9E5EF',
     marginBottom: 9
   },
 
@@ -303,62 +273,62 @@ const styles = StyleSheet.create({
 
   botonRol: {
     flex: 1,
-    borderWidth: 1.5,
-    borderColor: '#E2E8F0',
-    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#2A4056',
+    borderRadius: 15,
     paddingVertical: 17,
     paddingHorizontal: 6,
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#F8FAFC'
+    backgroundColor: '#0C1928'
   },
 
   rolActivo: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF'
+    borderColor: '#35C8F4',
+    backgroundColor: '#12334A'
   },
 
   textoRol: {
     fontSize: 12,
-    fontWeight: 'bold',
-    color: '#334155',
+    fontWeight: '700',
+    color: '#D9E5EF',
     textAlign: 'center'
   },
 
   cajaEntrada: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#0C1928',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 12,
+    borderColor: '#2A4056',
+    borderRadius: 13,
     paddingHorizontal: 14,
-    height: 54,
-    marginBottom: 21,
+    height: 55,
+    marginBottom: 20,
     gap: 10
   },
 
   entrada: {
     flex: 1,
     fontSize: 16,
-    color: '#1E293B'
+    color: '#F3F8FC'
   },
 
   botonIngresar: {
-    backgroundColor: '#2563EB',
+    backgroundColor: '#087EA4',
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 13,
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 10,
-    marginTop: 5
+    marginTop: 6
   },
 
   textoIngresar: {
     color: '#FFFFFF',
-    fontSize: 17,
-    fontWeight: 'bold'
+    fontSize: 16,
+    fontWeight: '800'
   },
 
   botonRegistro: {
@@ -371,16 +341,15 @@ const styles = StyleSheet.create({
   },
 
   textoRegistro: {
-    color: '#2563EB',
+    color: '#49CFF2',
     fontSize: 14,
-    fontWeight: 'bold'
+    fontWeight: '800'
   },
 
   pie: {
     textAlign: 'center',
-    color: '#94A3B8',
+    color: '#71869C',
     fontSize: 12,
     marginTop: 28
   }
-
 });

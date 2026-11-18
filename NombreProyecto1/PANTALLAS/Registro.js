@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 
 import {
@@ -102,8 +101,6 @@ export default function Registro({
 
       <View style={styles.tarjeta}>
 
-        {/* NOMBRE COMPLETO */}
-
         <Text style={styles.etiqueta}>
           Nombre completo
         </Text>
@@ -112,18 +109,17 @@ export default function Registro({
           <Ionicons
             name="person-outline"
             size={21}
-            color="#64748B"
+            color="#91A5BA"
           />
 
           <TextInput
             style={styles.entrada}
             placeholder="Tu nombre"
+            placeholderTextColor="#8293A8"
             value={nombre}
             onChangeText={setNombre}
           />
         </View>
-
-        {/* NOMBRE DE USUARIO */}
 
         <Text style={styles.etiqueta}>
           Usuario
@@ -133,20 +129,19 @@ export default function Registro({
           <Ionicons
             name="at-outline"
             size={21}
-            color="#64748B"
+            color="#91A5BA"
           />
 
           <TextInput
             style={styles.entrada}
             placeholder="Elige un usuario"
+            placeholderTextColor="#8293A8"
             autoCapitalize="none"
             autoCorrect={false}
             value={usuario}
             onChangeText={setUsuario}
           />
         </View>
-
-        {/* CONTRASEÑA */}
 
         <Text style={styles.etiqueta}>
           Contraseña
@@ -156,12 +151,13 @@ export default function Registro({
           <Ionicons
             name="lock-closed-outline"
             size={21}
-            color="#64748B"
+            color="#91A5BA"
           />
 
           <TextInput
             style={styles.entrada}
             placeholder="Contraseña"
+            placeholderTextColor="#8293A8"
             secureTextEntry={!verClave}
             value={contrasena}
             onChangeText={setContrasena}
@@ -177,12 +173,10 @@ export default function Registro({
                   : 'eye-outline'
               }
               size={21}
-              color="#64748B"
+              color="#91A5BA"
             />
           </TouchableOpacity>
         </View>
-
-        {/* CONFIRMAR CONTRASEÑA */}
 
         <Text style={styles.etiqueta}>
           Confirmar contraseña
@@ -192,19 +186,18 @@ export default function Registro({
           <Ionicons
             name="shield-checkmark-outline"
             size={21}
-            color="#64748B"
+            color="#91A5BA"
           />
 
           <TextInput
             style={styles.entrada}
             placeholder="Repite tu contraseña"
+            placeholderTextColor="#8293A8"
             secureTextEntry={!verClave}
             value={confirmacion}
             onChangeText={setConfirmacion}
           />
         </View>
-
-        {/* ELEGIR UNA DE LAS CUATRO CASAS */}
 
         <Text style={styles.subtitulo}>
           Selecciona tu casa
@@ -239,8 +232,8 @@ export default function Registro({
                   size={29}
                   color={
                     ocupada
-                      ? '#94A3B8'
-                      : '#2563EB'
+                      ? '#8293A8'
+                      : '#35C8F4'
                   }
                 />
 
@@ -276,8 +269,6 @@ export default function Registro({
 
         </View>
 
-        {/* CREAR CUENTA */}
-
         <TouchableOpacity
           style={styles.boton}
           onPress={guardar}
@@ -300,8 +291,6 @@ export default function Registro({
 
         </TouchableOpacity>
 
-        {/* REGRESAR */}
-
         <TouchableOpacity
           style={styles.volver}
           onPress={volver}
@@ -311,7 +300,7 @@ export default function Registro({
           <Ionicons
             name="arrow-back-outline"
             size={20}
-            color="#2563EB"
+            color="#35C8F4"
           />
 
           <Text style={styles.textoVolver}>
@@ -330,13 +319,13 @@ const styles = StyleSheet.create({
 
   fondo: {
     flex: 1,
-    backgroundColor: '#EDF4FF'
+    backgroundColor: '#081321'
   },
 
   contenido: {
     padding: 20,
-    paddingTop: 40,
-    paddingBottom: 35
+    paddingTop: 42,
+    paddingBottom: 38
   },
 
   encabezado: {
@@ -345,65 +334,69 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    width: 75,
-    height: 75,
-    backgroundColor: '#2563EB',
-    borderRadius: 21,
+    width: 78,
+    height: 78,
+    backgroundColor: '#123B59',
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12
+    marginBottom: 13,
+    borderWidth: 1,
+    borderColor: '#24799A'
   },
 
   titulo: {
-    fontSize: 26,
-    fontWeight: 'bold',
-    color: '#1E3A8A'
+    fontSize: 27,
+    fontWeight: '800',
+    color: '#F3F8FC'
   },
 
   descripcion: {
     fontSize: 14,
-    color: '#64748B',
+    color: '#91A5BA',
     marginTop: 7
   },
 
   tarjeta: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 18,
+    backgroundColor: '#111F31',
+    borderRadius: 21,
     padding: 20,
-    elevation: 3
+    borderWidth: 1,
+    borderColor: '#20354B',
+    elevation: 5
   },
 
   etiqueta: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#334155',
+    fontWeight: '700',
+    color: '#D9E5EF',
     marginBottom: 8
   },
 
   entradaConIcono: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#0C1928',
     borderWidth: 1,
-    borderColor: '#CBD5E1',
-    borderRadius: 11,
-    paddingHorizontal: 12,
+    borderColor: '#2A4056',
+    borderRadius: 13,
+    paddingHorizontal: 13,
     marginBottom: 18,
-    height: 52,
-    gap: 9
+    height: 53,
+    gap: 10
   },
 
   entrada: {
     flex: 1,
     fontSize: 15,
-    color: '#1E293B'
+    color: '#F3F8FC'
   },
 
   subtitulo: {
     fontSize: 19,
-    fontWeight: 'bold',
-    color: '#1E3A8A',
-    marginTop: 7,
+    fontWeight: '800',
+    color: '#F3F8FC',
+    marginTop: 8,
     marginBottom: 14
   },
 
@@ -415,53 +408,54 @@ const styles = StyleSheet.create({
 
   casa: {
     width: '48%',
-    borderWidth: 1.5,
-    borderColor: '#CBD5E1',
-    borderRadius: 13,
+    borderWidth: 1,
+    borderColor: '#2A4056',
+    backgroundColor: '#0C1928',
+    borderRadius: 15,
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 17,
     paddingHorizontal: 5,
     marginBottom: 12
   },
 
   casaSeleccionada: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF'
+    borderColor: '#35C8F4',
+    backgroundColor: '#12334A'
   },
 
   casaOcupada: {
-    borderColor: '#E2E8F0',
-    backgroundColor: '#F1F5F9',
-    opacity: 0.7
+    borderColor: '#27394B',
+    backgroundColor: '#172536',
+    opacity: 0.58
   },
 
   nombreCasa: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1E3A8A',
-    marginTop: 7
+    fontWeight: '800',
+    color: '#EAF2F8',
+    marginTop: 8
   },
 
   detalleCasa: {
     fontSize: 12,
-    color: '#64748B',
+    color: '#91A5BA',
     marginTop: 3
   },
 
   disponibilidad: {
     fontSize: 12,
-    color: '#15803D',
-    fontWeight: 'bold',
+    color: '#55D6AE',
+    fontWeight: '800',
     marginTop: 8
   },
 
   noDisponible: {
-    color: '#64748B'
+    color: '#8293A8'
   },
 
   boton: {
-    backgroundColor: '#2563EB',
-    borderRadius: 11,
+    backgroundColor: '#087EA4',
+    borderRadius: 13,
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -473,22 +467,21 @@ const styles = StyleSheet.create({
   textoBoton: {
     fontSize: 16,
     color: '#FFFFFF',
-    fontWeight: 'bold'
+    fontWeight: '800'
   },
 
   volver: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 21,
+    marginTop: 22,
     gap: 8
   },
 
   textoVolver: {
-    color: '#2563EB',
-    fontWeight: 'bold',
+    color: '#49CFF2',
+    fontWeight: '800',
     fontSize: 14
   }
 
 });
- 
