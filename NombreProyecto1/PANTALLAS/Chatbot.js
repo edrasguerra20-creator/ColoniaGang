@@ -9,12 +9,6 @@ import { Ionicons } from '@expo/vector-icons';
 // IP de la computadora. La última que mostró Expo fue 192.168.0.8.
 const URL_API = 'http://192.168.0.8:3001/chat';
 
-<<<<<<< HEAD
-// DIRECCION DEL SERVIDOR EN TU COMPUTADORA
-// CAMBIA LA IP SI TU COMPUTADORA TIENE OTRA
-
-const URL_API = 'http://192.168.0.10:3001/chat';
-
 
 export default function Chatbot({
   rol,
@@ -23,9 +17,7 @@ export default function Chatbot({
   casaAsignada
 }) {
 
-=======
-export default function Chatbot({ rol, casas, postes, casaAsignada }) {
->>>>>>> 9768f5f584ed49ec0c3184dacec96f415f2f73b4
+
   const [abierto, setAbierto] = useState(false);
   const [pregunta, setPregunta] = useState('');
   const [cargando, setCargando] = useState(false);
