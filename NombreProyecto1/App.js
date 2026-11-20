@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 
 import {
@@ -22,14 +23,25 @@ import Login from './PANTALLAS/Login';
 import Registro from './PANTALLAS/Registro';
 import Chatbot from './PANTALLAS/Chatbot';
 
+// ============================================
+// COLONIA DOMOTICA
+// ============================================
+
 const CLAVE = '@ColoniaGang_Usuarios';
 
-// IMPORTANTE:
-// COLOCA AQUI LA IP ACTUAL DE TU COMPUTADORA.
-// USA LA MISMA IP CON LA QUE YA TE FUNCIONO.
-const URL_CASA1 = 'http://192.168.0.8:3002';
+// IP DE LA COMPUTADORA
+const URL_ARDUINO = 'http://192.168.0.8:3002';
 
+// TIEMPO DE ESPERA
+const ESPERA_APP = 30000;
+
+// TODOS LOS BOTONES DE SERVOS HABILITADOS
+const SERVOS_HABILITADOS = true;
+
+// ============================================
 // COMPONENTE DE CONTROL
+// ============================================
+
 function Control({
   nombre,
   icono,
@@ -42,14 +54,12 @@ function Control({
   accion,
   deshabilitado = false
 }) {
-
   const Icono = material
     ? MaterialCommunityIcons
     : Ionicons;
 
   return (
     <View style={styles.control}>
-
       <View style={styles.iconoControl}>
         <Icono
           name={icono}
@@ -81,12 +91,14 @@ function Control({
           {activo ? botonActivo : botonInactivo}
         </Text>
       </TouchableOpacity>
-
     </View>
   );
 }
 
+// ============================================
 // APLICACION PRINCIPAL
+// ============================================
+
 export default function App() {
 
   // INICIO DE SESION
@@ -105,68 +117,69 @@ export default function App() {
   const [casaAsignada, setCasaAsignada] = useState(0);
   const [nombreSesion, setNombreSesion] = useState('');
 
-  // CONEXION CON ARDUINO
-  const [enviandoCasa1, setEnviandoCasa1] = useState(false);
-  const [mensajeCasa1, setMensajeCasa1] = useState(
-    'Sistema preparado para controlar la Casa 1.'
-  );
-
+  // ARDUINO
+  const [enviando, setEnviando] = useState(false);
   const bloqueoEnvio = useRef(false);
 
+  const [mensajesCasas, setMensajesCasas] = useState(
+    Array(4).fill('Lista para enviar ordenes.')
+  );
+
+  const [mensajePostes, setMensajePostes] = useState(
+    'Postes listos para recibir ordenes.'
+  );
+
   // CUATRO CASAS
-  const [casas, setCasas] = useState([
-    { luz: false, puerta: false, especial: false },
-    { luz: false, puerta: false, especial: false },
-    { luz: false, puerta: false, especial: false },
-    { luz: false, puerta: false, especial: false }
-  ]);
+  const [casas, setCasas] = useState(
+    Array.from({ length: 4 }, () => ({
+      luz: false,
+      puerta: false,
+      especial: false
+    }))
+  );
 
   // SEIS POSTES
-  const [postes, setPostes] = useState([
-    false, false, false, false, false, false
-  ]);
+  const [postes, setPostes] = useState(
+    Array(6).fill(false)
+  );
 
-  // CARGAR USUARIOS GUARDADOS
+  // ==========================================
+  // CARGAR USUARIOS
+  // ==========================================
+
   useEffect(() => {
-
-    async function cargarUsuarios() {
-
+    const cargarUsuarios = async () => {
       try {
-
         const guardados = await AsyncStorage.getItem(CLAVE);
 
         if (guardados) {
-
           const lista = JSON.parse(guardados);
 
           if (Array.isArray(lista)) {
             setCuentas(lista);
           }
         }
-
       } catch (error) {
-
         Alert.alert(
           'Aviso',
           'No se pudieron cargar los usuarios.'
         );
-
       } finally {
-
         setCargando(false);
       }
-    }
+    };
 
     cargarUsuarios();
-
   }, []);
 
-  // CASAS OCUPADAS
   const casasOcupadas = cuentas.map(
     cuenta => cuenta.casa
   );
 
+  // ==========================================
   // REGISTRAR USUARIO
+  // ==========================================
+
   const registrarUsuario = async (
     nombre,
     nuevoUsuario,
@@ -224,10 +237,12 @@ export default function App() {
       casa: casaElegida
     };
 
-    const listaNueva = [...cuentas, nuevaCuenta];
+    const listaNueva = [
+      ...cuentas,
+      nuevaCuenta
+    ];
 
     try {
-
       await AsyncStorage.setItem(
         CLAVE,
         JSON.stringify(listaNueva)
@@ -245,21 +260,20 @@ export default function App() {
       );
 
       return true;
-
     } catch (error) {
-
       Alert.alert(
         'Error',
         'No se pudo guardar la cuenta.'
       );
-
       return false;
     }
   };
 
+  // ==========================================
   // INICIAR SESION
-  const iniciarSesion = () => {
+  // ==========================================
 
+  const iniciarSesion = () => {
     const nombre = usuario.trim().toLowerCase();
 
     if (!nombre || !contrasena) {
@@ -272,24 +286,19 @@ export default function App() {
 
     // ADMINISTRADOR
     if (tipoCuenta === 'admin') {
-
       if (
         nombre === 'admin' &&
         contrasena === '1234'
       ) {
-
         setRol('admin');
         setNombreSesion('Administrador');
         setPestana('inicio');
-
       } else {
-
         Alert.alert(
           'Error',
           'Datos del administrador incorrectos.'
         );
       }
-
       return;
     }
 
@@ -298,7 +307,6 @@ export default function App() {
       nombre === 'usuario' &&
       contrasena === '1234'
     ) {
-
       const casaLibre = [0, 1, 2, 3].find(
         i => !casasOcupadas.includes(i)
       );
@@ -339,9 +347,11 @@ export default function App() {
     setPestana('inicio');
   };
 
+  // ==========================================
   // CERRAR SESION
-  const cerrarSesion = () => {
+  // ==========================================
 
+  const cerrarSesion = () => {
     setRol('');
     setUsuario('');
     setContrasena('');
@@ -350,107 +360,20 @@ export default function App() {
     setNombreSesion('');
   };
 
-  // =========================================
-  // CONTROL FLUIDO DE LAS CASAS
-  // =========================================
+  // ==========================================
+  // ENVIAR ORDEN AL ARDUINO
+  // ==========================================
 
-  const cambiarCasa = async (numero, componente) => {
-
-    // VERIFICAR PERMISOS
-    if (
-      rol !== 'admin' &&
-      !(rol === 'usuario' && numero === casaAsignada)
-    ) {
-      return;
-    }
-
-    // CASAS 2, 3 Y 4: SIMULACION
-    if (numero !== 0) {
-
-      setCasas(anteriores =>
-        anteriores.map((casa, i) =>
-          i === numero
-            ? {
-                ...casa,
-                [componente]: !casa[componente]
-              }
-            : casa
-        )
-      );
-
-      return;
-    }
-
-    // CASA 1: VENTANA PENDIENTE
-    if (componente === 'especial') {
-
-      Alert.alert(
-        'Ventana pendiente',
-        'Necesitamos alimentación adecuada para controlar los dos servomotores.'
-      );
-
-      return;
-    }
-
-    // EVITAR ENVIAR DOS ORDENES AL MISMO TIEMPO
-    if (bloqueoEnvio.current) {
-      return;
-    }
-
-    // ESTADOS ANTERIOR Y NUEVO
-    const estadoAnterior = casas[0][componente];
-    const nuevoEstado = !estadoAnterior;
-
-    // COMANDO PARA ARDUINO
-    let comando = '';
-
-    if (componente === 'luz') {
-      comando = nuevoEstado
-        ? 'LUZ_ON'
-        : 'LUZ_OFF';
-    }
-
-    else if (componente === 'puerta') {
-      comando = nuevoEstado
-        ? 'PUERTA_ABRIR'
-        : 'PUERTA_CERRAR';
-    }
-
-    if (!comando) {
-      return;
-    }
-
-    bloqueoEnvio.current = true;
-    setEnviandoCasa1(true);
-
-    // RESPUESTA INMEDIATA EN PANTALLA
-    setCasas(anteriores =>
-      anteriores.map((casa, i) =>
-        i === 0
-          ? {
-              ...casa,
-              [componente]: nuevoEstado
-            }
-          : casa
-      )
-    );
-
-    setMensajeCasa1(
-      'Enviando orden al Arduino...'
-    );
-
-    // TIEMPO MAXIMO PARA LA RESPUESTA
+  const enviarAlArduino = async comando => {
     const controlador = new AbortController();
 
     const temporizador = setTimeout(() => {
       controlador.abort();
-    }, 7000);
+    }, ESPERA_APP);
 
     try {
-
-      // ENVIAR ORDEN A NODE.JS
       const respuesta = await fetch(
-        URL_CASA1 + '/control',
+        URL_ARDUINO + '/control',
         {
           method: 'POST',
           headers: {
@@ -465,83 +388,249 @@ export default function App() {
 
       const datos = await respuesta.json();
 
-      if (!respuesta.ok) {
+      if (!respuesta.ok || datos.ok !== true) {
         throw new Error(
-          datos.error || 'El servidor no aceptó la orden.'
+          datos.error ||
+          'Arduino no confirmo la orden.'
         );
       }
 
-      // ORDEN ACEPTADA
-      setMensajeCasa1(
-        'Orden enviada al Arduino: ' + comando
-      );
+      return datos;
 
     } catch (error) {
+      if (error.name === 'AbortError') {
+        throw new Error(
+          'Se agotaron los 30 segundos de espera.'
+        );
+      }
+      throw error;
 
-      // RECUPERAR ESTADO ANTERIOR
+    } finally {
+      clearTimeout(temporizador);
+    }
+  };
+
+  // ==========================================
+  // CONTROLAR LAS CUATRO CASAS
+  // ==========================================
+
+  const cambiarCasa = async (numero, componente) => {
+
+    // PERMISOS
+    if (
+      rol !== 'admin' &&
+      !(rol === 'usuario' && numero === casaAsignada)
+    ) {
+      return;
+    }
+
+    if (bloqueoEnvio.current) {
+      return;
+    }
+
+    // TODOS LOS SERVOS HABILITADOS EN LA APP
+    if (
+      componente !== 'luz' &&
+      !SERVOS_HABILITADOS
+    ) {
+      Alert.alert(
+        'Servomotores desactivados',
+        'Activa los servomotores para continuar.'
+      );
+      return;
+    }
+
+    const nuevoEstado = !casas[numero][componente];
+    const prefijo = `CASA${numero + 1}_`;
+
+    let comando = '';
+
+    // LUCES
+    if (componente === 'luz') {
+      comando = prefijo + (
+        nuevoEstado ? 'LUZ_ON' : 'LUZ_OFF'
+      );
+    }
+
+    // PUERTAS
+    if (componente === 'puerta') {
+      comando = prefijo + (
+        nuevoEstado
+          ? 'PUERTA_ABRIR'
+          : 'PUERTA_CERRAR'
+      );
+    }
+
+    // VENTANAS Y TENDEDEROS
+    if (componente === 'especial') {
+      comando = numero < 2
+        ? prefijo + (
+            nuevoEstado
+              ? 'VENTANA_ABRIR'
+              : 'VENTANA_CERRAR'
+          )
+        : prefijo + (
+            nuevoEstado
+              ? 'TENDEDERO_EXTENDER'
+              : 'TENDEDERO_GUARDAR'
+          );
+    }
+
+    if (!comando) {
+      return;
+    }
+
+    bloqueoEnvio.current = true;
+    setEnviando(true);
+
+    setMensajesCasas(anteriores =>
+      anteriores.map((mensaje, i) =>
+        i === numero
+          ? `Enviando ${comando}...`
+          : mensaje
+      )
+    );
+
+    try {
+      await enviarAlArduino(comando);
+
+      // ACTUALIZAR SOLO CON CONFIRMACION
       setCasas(anteriores =>
         anteriores.map((casa, i) =>
-          i === 0
+          i === numero
             ? {
                 ...casa,
-                [componente]: estadoAnterior
+                [componente]: nuevoEstado
               }
             : casa
         )
       );
 
-      if (error.name === 'AbortError') {
+      setMensajesCasas(anteriores =>
+        anteriores.map((mensaje, i) =>
+          i === numero
+            ? `Arduino confirmo: ${comando}`
+            : mensaje
+        )
+      );
 
-        setMensajeCasa1(
-          'El servidor tardó demasiado en responder.'
-        );
-
-      } else {
-
-        setMensajeCasa1(
-          'Error de conexión con el Arduino.'
-        );
-      }
+    } catch (error) {
+      setMensajesCasas(anteriores =>
+        anteriores.map((mensaje, i) =>
+          i === numero
+            ? `No confirmado: ${error.message}`
+            : mensaje
+        )
+      );
 
       Alert.alert(
-        'Error de conexión',
-        'No se pudo confirmar la orden. Revisa la conexión del Arduino y el servidor del puerto 3002.'
+        `Casa ${numero + 1}: orden no confirmada`,
+        error.message
       );
 
     } finally {
-
-      clearTimeout(temporizador);
-
       bloqueoEnvio.current = false;
-      setEnviandoCasa1(false);
+      setEnviando(false);
     }
   };
 
-  // =========================================
-  // CONTROLAR POSTES
-  // =========================================
+  // ==========================================
+  // CONTROLAR UN POSTE
+  // ==========================================
 
-  const cambiarPoste = numero => {
-
-    if (rol !== 'admin') {
+  const cambiarPoste = async numero => {
+    if (rol !== 'admin' || bloqueoEnvio.current) {
       return;
     }
 
-    setPostes(anteriores =>
-      anteriores.map((encendido, i) =>
-        i === numero ? !encendido : encendido
-      )
-    );
+    const nuevoEstado = !postes[numero];
+
+    const comando =
+      `POSTE${numero + 1}_${nuevoEstado ? 'ON' : 'OFF'}`;
+
+    bloqueoEnvio.current = true;
+    setEnviando(true);
+    setMensajePostes(`Enviando ${comando}...`);
+
+    try {
+      await enviarAlArduino(comando);
+
+      setPostes(anteriores =>
+        anteriores.map((estado, i) =>
+          i === numero ? nuevoEstado : estado
+        )
+      );
+
+      setMensajePostes(
+        `Arduino confirmo: ${comando}`
+      );
+
+    } catch (error) {
+      setMensajePostes(
+        `No confirmado: ${error.message}`
+      );
+
+      Alert.alert(
+        'Poste: orden no confirmada',
+        error.message
+      );
+
+    } finally {
+      bloqueoEnvio.current = false;
+      setEnviando(false);
+    }
   };
 
-  // =========================================
-  // MOSTRAR CASA
-  // =========================================
+  // ==========================================
+  // CONTROLAR TODOS LOS POSTES
+  // ==========================================
+
+  const cambiarTodosPostes = async encender => {
+    if (rol !== 'admin' || bloqueoEnvio.current) {
+      return;
+    }
+
+    const comando =
+      `POSTES_TODOS_${encender ? 'ON' : 'OFF'}`;
+
+    bloqueoEnvio.current = true;
+    setEnviando(true);
+    setMensajePostes(`Enviando ${comando}...`);
+
+    try {
+      await enviarAlArduino(comando);
+
+      setPostes(
+        Array(6).fill(encender)
+      );
+
+      setMensajePostes(
+        `Arduino confirmo: ${comando}`
+      );
+
+    } catch (error) {
+      setMensajePostes(
+        `No confirmado: ${error.message}`
+      );
+
+      Alert.alert(
+        'Postes: orden no confirmada',
+        error.message
+      );
+
+    } finally {
+      bloqueoEnvio.current = false;
+      setEnviando(false);
+    }
+  };
+
+  // ==========================================
+  // MOSTRAR CONTROLES DE UNA CASA
+  // ==========================================
 
   const mostrarCasa = numero => {
-
     const casa = casas[numero];
-    const tieneVentana = numero < 2;
+    const ventana = numero < 2;
 
     const residente = cuentas.find(
       cuenta => cuenta.casa === numero
@@ -551,7 +640,6 @@ export default function App() {
       <View style={styles.tarjeta} key={numero}>
 
         <View style={styles.tituloCasa}>
-
           <Ionicons
             name="home-outline"
             size={29}
@@ -559,7 +647,6 @@ export default function App() {
           />
 
           <View style={{ flex: 1 }}>
-
             <Text style={styles.tituloTarjeta}>
               Casa {numero + 1}
               {numero === 3 ? ' Premium' : ''}
@@ -572,36 +659,23 @@ export default function App() {
                   : 'Disponible'
                 : 'Tu vivienda asignada'}
             </Text>
-
           </View>
-
         </View>
 
-        {numero === 0 ? (
+        <View style={styles.avisoCasaFisica}>
+          <Ionicons
+            name="hardware-chip-outline"
+            size={19}
+            color="#7DD3FC"
+          />
 
-          <View style={styles.avisoCasaFisica}>
-
-            <Ionicons
-              name="hardware-chip-outline"
-              size={19}
-              color="#7DD3FC"
-            />
-
-            <Text style={styles.textoAvisoCasaFisica}>
-              Control físico de la Casa 1
-            </Text>
-
-          </View>
-
-        ) : (
-
-          <Text style={styles.notaSimulacion}>
-            Esta casa funciona en modo simulación.
+          <Text style={styles.textoAvisoCasaFisica}>
+            Control físico de la Casa {numero + 1}
           </Text>
+        </View>
 
-        )}
+        {/* LUZ */}
 
-        {/* ILUMINACION */}
         <Control
           nombre="Iluminación"
           icono={casa.luz ? 'bulb' : 'bulb-outline'}
@@ -611,10 +685,11 @@ export default function App() {
           botonActivo="Apagar"
           botonInactivo="Encender"
           accion={() => cambiarCasa(numero, 'luz')}
-          deshabilitado={numero === 0 && enviandoCasa1}
+          deshabilitado={enviando}
         />
 
         {/* PUERTA */}
+
         <Control
           nombre="Puerta"
           icono={casa.puerta ? 'door-open' : 'door-closed'}
@@ -625,92 +700,89 @@ export default function App() {
           botonActivo="Cerrar"
           botonInactivo="Abrir"
           accion={() => cambiarCasa(numero, 'puerta')}
-          deshabilitado={numero === 0 && enviandoCasa1}
+          deshabilitado={
+            enviando || !SERVOS_HABILITADOS
+          }
         />
 
         {/* VENTANA O TENDEDERO */}
+
         <Control
-          nombre={tieneVentana ? 'Ventana' : 'Tendedero'}
+          nombre={ventana ? 'Ventana' : 'Tendedero'}
           icono={
-            tieneVentana
+            ventana
               ? casa.especial
                 ? 'window-open'
                 : 'window-closed'
               : 'shirt-outline'
           }
-          material={tieneVentana}
+          material={ventana}
           activo={casa.especial}
           textoActivo={
-            tieneVentana ? 'Abierta' : 'Extendido'
+            ventana ? 'Abierta' : 'Extendido'
           }
           textoInactivo={
-            tieneVentana ? 'Cerrada' : 'Guardado'
+            ventana ? 'Cerrada' : 'Guardado'
           }
           botonActivo={
-            tieneVentana ? 'Cerrar' : 'Guardar'
+            ventana ? 'Cerrar' : 'Guardar'
           }
           botonInactivo={
-            tieneVentana ? 'Abrir' : 'Extender'
+            ventana ? 'Abrir' : 'Extender'
           }
           accion={() => cambiarCasa(numero, 'especial')}
-          deshabilitado={numero === 0}
+          deshabilitado={
+            enviando || !SERVOS_HABILITADOS
+          }
         />
 
-        {/* MENSAJE DEL ARDUINO */}
-        {numero === 0 && (
+        {/* ESTADO */}
 
-          <View>
-
-            {enviandoCasa1 && (
-              <ActivityIndicator
-                size="small"
-                color="#38BDF8"
-                style={{ marginTop: 12 }}
-              />
-            )}
-
-            <Text style={styles.mensajeArduino}>
-              {mensajeCasa1}
-            </Text>
-
-            <Text style={styles.notaSimulacion}>
-              La ventana se habilitará cuando tengamos
-              alimentación adecuada para ambos servos.
-            </Text>
-
-            <Text style={styles.notaSimulacion}>
-              El estado mostrado representa la última
-              orden solicitada. No confirma la posición
-              física del dispositivo.
-            </Text>
-
-          </View>
-
+        {enviando && (
+          <ActivityIndicator
+            color="#38BDF8"
+            style={{ marginTop: 12 }}
+          />
         )}
+
+        <Text style={styles.mensajeArduino}>
+          {mensajesCasas[numero]}
+        </Text>
+
+        <Text style={styles.notaSimulacion}>
+          El estado se actualiza cuando Arduino
+          confirma la orden. Esto no comprueba
+          la posición física del mecanismo.
+        </Text>
 
       </View>
     );
   };
 
+  // ==========================================
   // PANTALLA DE CARGA
+  // ==========================================
+
   if (cargando) {
     return (
       <View style={styles.centrado}>
-
         <ActivityIndicator
           size="large"
           color="#38BDF8"
         />
 
-        <Text>Cargando colonia...</Text>
-
+        <Text style={styles.descripcion}>
+          Cargando colonia...
+        </Text>
       </View>
     );
   }
 
-  // PANTALLA DE REGISTRO
-  if (rol === '' && mostrarRegistro) {
+  // ==========================================
+  // REGISTRO
+  // ==========================================
 
+  if (rol === '' && mostrarRegistro) {
     return (
       <Registro
         registrar={registrarUsuario}
@@ -720,9 +792,11 @@ export default function App() {
     );
   }
 
-  // PANTALLA DE LOGIN
-  if (rol === '') {
+  // ==========================================
+  // LOGIN
+  // ==========================================
 
+  if (rol === '') {
     return (
       <Login
         usuario={usuario}
@@ -737,33 +811,64 @@ export default function App() {
     );
   }
 
+  // ==========================================
   // DATOS DEL PANEL
+  // ==========================================
+
   const lucesEncendidas = casas.filter(
     casa => casa.luz
   ).length;
 
   const postesEncendidos = postes.filter(Boolean).length;
-
   const miCasa = casas[casaAsignada];
 
-  // MENU DE NAVEGACION
   const menu = rol === 'admin'
     ? [
-        { id: 'inicio', nombre: 'Inicio', icono: 'grid-outline' },
-        { id: 'casas', nombre: 'Casas', icono: 'home-outline' },
-        { id: 'postes', nombre: 'Postes', icono: 'bulb-outline' }
+        {
+          id: 'inicio',
+          nombre: 'Inicio',
+          icono: 'grid-outline'
+        },
+        {
+          id: 'casas',
+          nombre: 'Casas',
+          icono: 'home-outline'
+        },
+        {
+          id: 'postes',
+          nombre: 'Postes',
+          icono: 'bulb-outline'
+        }
       ]
     : [
-        { id: 'inicio', nombre: 'Inicio', icono: 'home-outline' },
-        { id: 'casa', nombre: 'Mi casa', icono: 'options-outline' },
-        { id: 'perfil', nombre: 'Mi perfil', icono: 'person-outline' }
+        {
+          id: 'inicio',
+          nombre: 'Inicio',
+          icono: 'home-outline'
+        },
+        {
+          id: 'casa',
+          nombre: 'Mi casa',
+          icono: 'options-outline'
+        },
+        {
+          id: 'perfil',
+          nombre: 'Mi perfil',
+          icono: 'person-outline'
+        }
       ];
 
-  // PANTALLA PRINCIPAL
+  // ==========================================
+  // INTERFAZ PRINCIPAL
+  // ==========================================
+
   return (
     <View style={styles.fondo}>
 
-      <StatusBar barStyle="light-content" backgroundColor="#080F1D" />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor="#080F1D"
+      />
 
       <ScrollView
         style={{ flex: 1 }}
@@ -771,20 +876,18 @@ export default function App() {
       >
 
         {/* ENCABEZADO */}
+
         <View style={styles.encabezado}>
 
           <View style={styles.logo}>
-
             <Ionicons
               name="home-outline"
               size={28}
               color="#FFFFFF"
             />
-
           </View>
 
           <View style={{ flex: 1 }}>
-
             <Text style={styles.titulo}>
               Colonia Domótica
             </Text>
@@ -794,24 +897,21 @@ export default function App() {
                 ? 'Panel de administrador'
                 : `Bienvenido, ${nombreSesion}`}
             </Text>
-
           </View>
 
           <TouchableOpacity onPress={cerrarSesion}>
-
             <Ionicons
               name="log-out-outline"
               size={27}
               color="#DC2626"
             />
-
           </TouchableOpacity>
 
         </View>
 
         {/* ADMINISTRADOR - INICIO */}
-        {rol === 'admin' && pestana === 'inicio' && (
 
+        {rol === 'admin' && pestana === 'inicio' && (
           <View>
 
             <Text style={styles.seccion}>
@@ -819,60 +919,31 @@ export default function App() {
             </Text>
 
             <View style={styles.resumen}>
+              {[
+                ['4', 'Casas'],
+                [String(cuentas.length), 'Ocupadas'],
+                [String(lucesEncendidas), 'Luces encendidas'],
+                [String(postesEncendidos), 'Postes encendidos']
+              ].map(([numero, etiqueta]) => (
+                <View
+                  key={etiqueta}
+                  style={styles.dato}
+                >
+                  <Text style={styles.numero}>
+                    {numero}
+                  </Text>
 
-              <View style={styles.dato}>
-
-                <Text style={styles.numero}>4</Text>
-
-                <Text style={styles.descripcion}>
-                  Casas
-                </Text>
-
-              </View>
-
-              <View style={styles.dato}>
-
-                <Text style={styles.numero}>
-                  {cuentas.length}
-                </Text>
-
-                <Text style={styles.descripcion}>
-                  Ocupadas
-                </Text>
-
-              </View>
-
-              <View style={styles.dato}>
-
-                <Text style={styles.numero}>
-                  {lucesEncendidas}
-                </Text>
-
-                <Text style={styles.descripcion}>
-                  Luces encendidas
-                </Text>
-
-              </View>
-
-              <View style={styles.dato}>
-
-                <Text style={styles.numero}>
-                  {postesEncendidos}
-                </Text>
-
-                <Text style={styles.descripcion}>
-                  Postes encendidos
-                </Text>
-
-              </View>
-
+                  <Text style={styles.descripcion}>
+                    {etiqueta}
+                  </Text>
+                </View>
+              ))}
             </View>
 
             <TouchableOpacity
               style={styles.botonGrande}
               onPress={() => setPestana('casas')}
             >
-
               <Ionicons
                 name="home-outline"
                 size={21}
@@ -882,14 +953,12 @@ export default function App() {
               <Text style={styles.textoBlanco}>
                 Administrar casas
               </Text>
-
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.botonGrande}
               onPress={() => setPestana('postes')}
             >
-
               <Ionicons
                 name="bulb-outline"
                 size={21}
@@ -899,33 +968,27 @@ export default function App() {
               <Text style={styles.textoBlanco}>
                 Controlar postes
               </Text>
-
             </TouchableOpacity>
 
           </View>
-
         )}
 
         {/* ADMINISTRADOR - CASAS */}
+
         {rol === 'admin' && pestana === 'casas' && (
-
           <View>
-
             <Text style={styles.seccion}>
               Casas inteligentes
             </Text>
 
             {casas.map((casa, i) => mostrarCasa(i))}
-
           </View>
-
         )}
 
         {/* ADMINISTRADOR - POSTES */}
+
         {rol === 'admin' && pestana === 'postes' && (
-
           <View>
-
             <Text style={styles.seccion}>
               Alumbrado público
             </Text>
@@ -933,7 +996,6 @@ export default function App() {
             <View style={styles.tarjeta}>
 
               {postes.map((encendido, i) => (
-
                 <Control
                   key={i}
                   nombre={`Poste ${i + 1}`}
@@ -946,47 +1008,55 @@ export default function App() {
                   botonActivo="Apagar"
                   botonInactivo="Encender"
                   accion={() => cambiarPoste(i)}
+                  deshabilitado={enviando}
                 />
-
               ))}
 
               <TouchableOpacity
-                style={styles.botonGrande}
-                onPress={() =>
-                  setPostes(Array(6).fill(true))
-                }
+                style={[
+                  styles.botonGrande,
+                  enviando && styles.botonDeshabilitado
+                ]}
+                onPress={() => cambiarTodosPostes(true)}
+                disabled={enviando}
               >
-
                 <Text style={styles.textoBlanco}>
                   Encender todos
                 </Text>
-
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={styles.botonGrande}
-                onPress={() =>
-                  setPostes(Array(6).fill(false))
-                }
+                style={[
+                  styles.botonGrande,
+                  enviando && styles.botonDeshabilitado
+                ]}
+                onPress={() => cambiarTodosPostes(false)}
+                disabled={enviando}
               >
-
                 <Text style={styles.textoBlanco}>
                   Apagar todos
                 </Text>
-
               </TouchableOpacity>
 
+              {enviando && (
+                <ActivityIndicator
+                  color="#38BDF8"
+                  style={{ marginTop: 12 }}
+                />
+              )}
+
+              <Text style={styles.mensajeArduino}>
+                {mensajePostes}
+              </Text>
+
             </View>
-
           </View>
-
         )}
 
         {/* USUARIO - INICIO */}
+
         {rol === 'usuario' && pestana === 'inicio' && (
-
           <View>
-
             <Text style={styles.seccion}>
               Mi vivienda inteligente
             </Text>
@@ -1015,7 +1085,6 @@ export default function App() {
                 style={styles.botonGrande}
                 onPress={() => setPestana('casa')}
               >
-
                 <Ionicons
                   name="options-outline"
                   size={21}
@@ -1025,35 +1094,28 @@ export default function App() {
                 <Text style={styles.textoBlanco}>
                   Controlar mi casa
                 </Text>
-
               </TouchableOpacity>
 
             </View>
-
           </View>
-
         )}
 
         {/* USUARIO - MI CASA */}
+
         {rol === 'usuario' && pestana === 'casa' && (
-
           <View>
-
             <Text style={styles.seccion}>
               Controles de mi casa
             </Text>
 
             {mostrarCasa(casaAsignada)}
-
           </View>
-
         )}
 
         {/* USUARIO - PERFIL */}
+
         {rol === 'usuario' && pestana === 'perfil' && (
-
           <View>
-
             <Text style={styles.seccion}>
               Mi perfil
             </Text>
@@ -1089,7 +1151,6 @@ export default function App() {
                 ]}
                 onPress={cerrarSesion}
               >
-
                 <Ionicons
                   name="log-out-outline"
                   size={21}
@@ -1099,22 +1160,18 @@ export default function App() {
                 <Text style={styles.textoBlanco}>
                   Cerrar sesión
                 </Text>
-
               </TouchableOpacity>
 
             </View>
-
           </View>
-
         )}
 
       </ScrollView>
 
       {/* BARRA DE NAVEGACION */}
+
       <View style={styles.barra}>
-
         {menu.map(item => (
-
           <TouchableOpacity
             key={item.id}
             style={[
@@ -1123,7 +1180,6 @@ export default function App() {
             ]}
             onPress={() => setPestana(item.id)}
           >
-
             <Ionicons
               name={item.icono}
               size={24}
@@ -1142,14 +1198,12 @@ export default function App() {
             >
               {item.nombre}
             </Text>
-
           </TouchableOpacity>
-
         ))}
-
       </View>
 
       {/* DOMOTIBOT IA */}
+
       <Chatbot
         rol={rol}
         casas={casas}
@@ -1161,7 +1215,10 @@ export default function App() {
   );
 }
 
+// ============================================
 // ESTILOS
+// ============================================
+
 const styles = StyleSheet.create({
 
   fondo: {
@@ -1233,7 +1290,10 @@ const styles = StyleSheet.create({
     shadowColor: '#000000',
     shadowOpacity: 0.22,
     shadowRadius: 12,
-    shadowOffset: { width: 0, height: 5 }
+    shadowOffset: {
+      width: 0,
+      height: 5
+    }
   },
 
   tituloCasa: {

@@ -1,48 +1,61 @@
 
 const http = require('http');
+const { SerialPort, ReadlineParser } = require('serialport');
 
-const {
-  SerialPort,
-  ReadlineParser
-} = require('serialport');
+// ===========================================
+// COLONIA DOMOTICA - SERVIDOR ARDUINO
+// ===========================================
 
-// =====================================
-// COLONIA DOMOTICA INTELIGENTE
-// SERVIDOR DE LAS 4 CASAS Y 6 POSTES
-// =====================================
-
+// UN SOLO SERVIDOR PARA TODA LA MAQUETA
 const PUERTO_HTTP = 3002;
+
+// PUERTO ACTUAL DEL ARDUINO
 const PUERTO_ARDUINO = 'COM7';
-const VELOCIDAD = 9600;
+
+const BAUDIOS = 9600;
+
+// TIEMPO DE ESPERA DEL SERVIDOR
+const ESPERA_CONFIRMACION_MS = 22000;
 
 let arduinoListo = false;
-let ordenPendiente = null;
-let ultimaRespuesta = 'Sin mensajes';
+let ultimaRespuesta = 'Sin datos';
+let pendiente = null;
 
-// =====================================
-// CONEXION SERIAL
-// =====================================
+// ===========================================
+// CONEXION CON ARDUINO
+// ===========================================
 
 const arduino = new SerialPort({
   path: PUERTO_ARDUINO,
-  baudRate: VELOCIDAD,
+  baudRate: BAUDIOS,
   autoOpen: false
 });
 
-// LEE CADA MENSAJE COMPLETO DEL ARDUINO
 const lector = arduino.pipe(
   new ReadlineParser({
     delimiter: '\n'
   })
 );
 
-// =====================================
+// ===========================================
+// MOSTRAR MENSAJES
+// ===========================================
+
+function registro(etiqueta, texto = '') {
+
+  console.log(
+    `[${new Date().toLocaleTimeString()}] ${etiqueta}`,
+    texto
+  );
+}
+
+// ===========================================
 // RESPUESTAS HTTP
-// =====================================
+// ===========================================
 
 function responder(res, codigo, datos) {
 
-  if (res.writableEnded) {
+  if (res.writableEnded || res.destroyed) {
     return;
   }
 
@@ -57,28 +70,30 @@ function responder(res, codigo, datos) {
   res.end(JSON.stringify(datos));
 }
 
-// =====================================
+// ===========================================
 // TERMINAR UNA ORDEN
-// =====================================
+// ===========================================
 
-function terminarOrden(codigo, datos) {
+function terminarOrden(orden, codigo, datos) {
 
-  if (!ordenPendiente) {
+  if (pendiente !== orden) {
     return;
   }
 
-  const actual = ordenPendiente;
+  pendiente = null;
 
-  ordenPendiente = null;
+  clearTimeout(orden.temporizador);
 
-  clearTimeout(actual.temporizador);
-
-  responder(actual.res, codigo, datos);
+  responder(
+    orden.res,
+    codigo,
+    datos
+  );
 }
 
-// =====================================
-// RECIBIR MENSAJES DE ARDUINO
-// =====================================
+// ===========================================
+// LEER RESPUESTAS DEL ARDUINO
+// ===========================================
 
 lector.on('data', linea => {
 
@@ -90,330 +105,400 @@ lector.on('data', linea => {
 
   ultimaRespuesta = mensaje;
 
-  console.log('[RECIBIDO]', mensaje);
+  registro('[RECIBIDO]', mensaje);
 
-  // ARDUINO INICIO CORRECTAMENTE
-  if (
-    mensaje === 'COLONIA_DOMOTICA_LISTA'
-  ) {
+  // ARDUINO LISTO
+  if (mensaje === 'COLONIA_DOMOTICA_LISTA') {
 
     arduinoListo = true;
 
-    console.log('Arduino listo para recibir ordenes');
+    registro('[ARDUINO LISTO]');
 
     return;
   }
 
-  if (!ordenPendiente) {
+  const orden = pendiente;
+
+  if (!orden) {
+
+    registro(
+      '[RESPUESTA SIN ORDEN PENDIENTE]',
+      mensaje
+    );
+
     return;
   }
 
-  const comando = ordenPendiente.comando;
+  // CONFIRMACION REAL
+  if (mensaje === `OK:${orden.comando}`) {
 
-  // CONFIRMACION CORRECTA
-  if (mensaje === 'OK:' + comando) {
+    registro(
+      '[CONFIRMADO]',
+      orden.comando
+    );
 
-    console.log('[CONFIRMADO]', comando);
-
-    terminarOrden(200, {
+    terminarOrden(orden, 200, {
       ok: true,
-      comando: comando,
-      mensaje: 'Arduino confirmo la orden'
+      comando: orden.comando
     });
 
     return;
   }
 
-  // ARDUINO RESPONDIO CON ERROR
+  // ERROR EN EL ARDUINO
   if (mensaje.startsWith('ERROR:')) {
 
-    terminarOrden(422, {
+    registro(
+      '[RECHAZADO]',
+      `${orden.comando} -> ${mensaje}`
+    );
+
+    terminarOrden(orden, 409, {
       ok: false,
+      comando: orden.comando,
       error: mensaje
     });
-
   }
 });
 
-// =====================================
-// ESTADO DEL PUERTO
-// =====================================
-
-arduino.on('open', () => {
-
-  arduinoListo = false;
-
-  console.log('Puerto abierto:', PUERTO_ARDUINO);
-  console.log('Esperando que Arduino inicie...');
-
-});
+// ===========================================
+// ERRORES DEL PUERTO SERIAL
+// ===========================================
 
 arduino.on('error', error => {
 
-  console.log('[ERROR SERIAL]', error.message);
-
   arduinoListo = false;
 
-  terminarOrden(503, {
-    error: 'Error de comunicacion con Arduino'
-  });
+  registro(
+    '[ERROR SERIAL]',
+    error.message
+  );
 
+  if (pendiente) {
+
+    terminarOrden(pendiente, 503, {
+      ok: false,
+      error: error.message
+    });
+  }
 });
 
 arduino.on('close', () => {
 
   arduinoListo = false;
 
-  console.log('Arduino desconectado');
+  registro('[PUERTO CERRADO]');
 
-  terminarOrden(503, {
-    error: 'Se desconecto el Arduino'
-  });
+  if (pendiente) {
 
+    terminarOrden(pendiente, 503, {
+      ok: false,
+      error: 'Arduino se desconecto.'
+    });
+  }
 });
 
-// =====================================
-// VERIFICAR ORDENES PERMITIDAS
-// =====================================
+// ===========================================
+// VALIDAR COMANDOS
+// ===========================================
 
-function ordenValida(comando) {
+function comandoValido(comando) {
 
-  if (typeof comando !== 'string') {
-    return false;
-  }
+  return (
 
-  // LUCES Y PUERTAS
-  if (
-    /^CASA[1-4]_(LUZ_ON|LUZ_OFF|PUERTA_ABRIR|PUERTA_CERRAR)$/.test(comando)
-  ) {
-    return true;
-  }
+    // LUCES Y PUERTAS DE LAS 4 CASAS
+    /^CASA[1-4]_(LUZ_(ON|OFF)|PUERTA_(ABRIR|CERRAR))$/
+      .test(comando) ||
 
-  // VENTANAS
-  if (
-    /^CASA[12]_VENTANA_(ABRIR|CERRAR)$/.test(comando)
-  ) {
-    return true;
-  }
+    // VENTANAS DE LAS CASAS 1 Y 2
+    /^CASA[12]_VENTANA_(ABRIR|CERRAR)$/
+      .test(comando) ||
 
-  // TENDEDEROS
-  if (
-    /^CASA[34]_TENDEDERO_(EXTENDER|GUARDAR)$/.test(comando)
-  ) {
-    return true;
-  }
+    // TENDEDEROS DE LAS CASAS 3 Y 4
+    /^CASA[34]_TENDEDERO_(EXTENDER|GUARDAR)$/
+      .test(comando) ||
 
-  // POSTES INDIVIDUALES
-  if (
-    /^POSTE[1-6]_(ON|OFF)$/.test(comando)
-  ) {
-    return true;
-  }
+    // SEIS POSTES
+    /^POSTE[1-6]_(ON|OFF)$/
+      .test(comando) ||
 
-  // TODOS LOS POSTES
-  if (
-    /^POSTES_TODOS_(ON|OFF)$/.test(comando)
-  ) {
-    return true;
-  }
+    // TODOS LOS POSTES
+    /^POSTES_TODOS_(ON|OFF)$/
+      .test(comando) ||
 
-  return false;
+    // COMANDOS ANTIGUOS DE LA CASA 1
+    /^(LUZ_(ON|OFF)|PUERTA_(ABRIR|CERRAR)|VENTANA_(ABRIR|CERRAR))$/
+      .test(comando)
+  );
 }
 
-// =====================================
+// ===========================================
 // ENVIAR ORDEN AL ARDUINO
-// =====================================
+// ===========================================
 
 function enviarOrden(comando, res) {
 
   if (!arduino.isOpen || !arduinoListo) {
 
     responder(res, 503, {
-      error: 'Arduino no esta listo'
+      ok: false,
+      error:
+        'Arduino no esta listo. Revisa COM3 y cierra el Monitor Serie.'
     });
 
     return;
   }
 
-  if (ordenPendiente) {
+  // NO ENVIAR DOS ORDENES A LA VEZ
+  if (pendiente) {
 
     responder(res, 409, {
-      error: 'Arduino esta procesando otra orden'
+      ok: false,
+      error:
+        'Otra orden esta en proceso. Espera antes de enviar otra.'
     });
 
     return;
   }
 
-  console.log('[ENVIANDO]', comando);
+  const orden = {
+    comando: comando,
+    res: res,
+    temporizador: null
+  };
 
-  const temporizador = setTimeout(() => {
+  pendiente = orden;
 
-    console.log(
-      '[SIN RESPUESTA]',
+  registro('[ENVIANDO]', comando);
+
+  // ESPERAR CONFIRMACION DEL ARDUINO
+  orden.temporizador = setTimeout(() => {
+
+    if (pendiente === orden) {
+
+      registro(
+        '[SIN CONFIRMACION]',
+        comando
+      );
+
+      terminarOrden(orden, 504, {
+        ok: false,
+        error:
+          'Arduino no confirmo la orden dentro de 22 segundos.'
+      });
+    }
+
+  }, ESPERA_CONFIRMACION_MS);
+
+  try {
+
+    // ENVIAR CON SALTO DE LINEA
+    arduino.write(
+      comando + '\n',
+      error => {
+
+        if (error) {
+
+          registro(
+            '[ERROR DE ESCRITURA]',
+            error.message
+          );
+
+          if (pendiente === orden) {
+
+            terminarOrden(orden, 503, {
+              ok: false,
+              error: error.message
+            });
+          }
+
+        } else {
+
+          // ESTE MENSAJE NO CONFIRMA
+          // QUE ARDUINO EJECUTO LA ORDEN
+          registro(
+            '[ESCRITURA COMPLETADA]',
+            comando
+          );
+        }
+      }
+    );
+
+    registro(
+      '[ESCRITURA SOLICITADA]',
       comando
     );
 
-    terminarOrden(504, {
+  } catch (error) {
+
+    registro(
+      '[ERROR DE ENVIO]',
+      error.message
+    );
+
+    terminarOrden(orden, 503, {
       ok: false,
-      error:
-        'Arduino no respondio la orden. ' +
-        'Revisa los mensajes de la terminal.'
+      error: error.message
     });
+  }
+}
 
-  }, 6500);
+// ===========================================
+// SERVIDOR HTTP
+// ===========================================
 
-  // GUARDAR LA ORDEN ANTES DE ENVIARLA
-  ordenPendiente = {
-    comando,
-    res,
-    temporizador
-  };
+const servidor = http.createServer(
+  (req, res) => {
 
-  // ENVIAR CON SALTO DE LINEA
-  arduino.write(
-    comando + '\n',
-    'utf8',
-    error => {
+    const ruta = (req.url || '/').split('?')[0];
 
-      if (error) {
+    // PERMITIR PETICIONES
+    if (req.method === 'OPTIONS') {
 
-        console.log(
-          '[ERROR AL ENVIAR]',
-          error.message
-        );
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type'
+      });
 
-        terminarOrden(500, {
-          error: 'No se pudo escribir en COM7'
-        });
+      res.end();
 
-        return;
-      }
+      return;
+    }
 
-      // CONFIRMAR QUE LOS DATOS SALIERON
-      // DEL BUFFER DEL PUERTO SERIAL
-      arduino.drain(errorDrenaje => {
+    // ======================================
+    // CONSULTAR CONEXION
+    // ======================================
 
-        if (errorDrenaje) {
+    if (
+      req.method === 'GET' &&
+      ruta === '/salud'
+    ) {
 
-          console.log(
-            '[ERROR DE ENVIO]',
-            errorDrenaje.message
-          );
+      responder(res, 200, {
 
-          terminarOrden(500, {
-            error: 'Error al transmitir los datos'
+        servidor: 'funcionando',
+
+        arduino: arduino.isOpen
+          ? 'conectado'
+          : 'desconectado',
+
+        listo: arduinoListo,
+
+        puerto: PUERTO_ARDUINO,
+
+        ultimaRespuesta: ultimaRespuesta
+
+      });
+
+      return;
+    }
+
+    // ======================================
+    // RECIBIR ORDEN DE EXPO GO
+    // ======================================
+
+    if (
+      req.method === 'POST' &&
+      ruta === '/control'
+    ) {
+
+      let cuerpo = '';
+      let excedido = false;
+
+      req.on('data', bloque => {
+
+        cuerpo += bloque.toString('utf8');
+
+        if (
+          cuerpo.length > 8192 &&
+          !excedido
+        ) {
+
+          excedido = true;
+
+          responder(res, 413, {
+            ok: false,
+            error: 'Solicitud demasiado grande.'
+          });
+        }
+      });
+
+      req.on('end', () => {
+
+        if (excedido) {
+          return;
+        }
+
+        let datos;
+
+        try {
+
+          datos = JSON.parse(cuerpo);
+
+        } catch (error) {
+
+          responder(res, 400, {
+            ok: false,
+            error: 'JSON incorrecto.'
           });
 
           return;
         }
 
-        console.log('[TRANSMITIDO]', comando);
+        const comando = datos && datos.accion;
 
-      });
-    }
-  );
-}
-
-// =====================================
-// SERVIDOR HTTP
-// =====================================
-
-const servidor = http.createServer((req, res) => {
-
-  // CORS
-  if (req.method === 'OPTIONS') {
-
-    responder(res, 200, {
-      ok: true
-    });
-
-    return;
-  }
-
-  // COMPROBAR CONEXION
-  if (
-    req.method === 'GET' &&
-    req.url === '/salud'
-  ) {
-
-    responder(res, 200, {
-      servidor: 'funcionando',
-      arduino: arduino.isOpen
-        ? 'conectado'
-        : 'desconectado',
-      listo: arduinoListo,
-      puerto: PUERTO_ARDUINO,
-      ultimaRespuesta: ultimaRespuesta
-    });
-
-    return;
-  }
-
-  // CONTROL DE DISPOSITIVOS
-  if (
-    req.method === 'POST' &&
-    req.url === '/control'
-  ) {
-
-    let cuerpo = '';
-
-    req.on('data', parte => {
-
-      cuerpo += parte.toString();
-
-      if (cuerpo.length > 2000) {
-
-        responder(res, 413, {
-          error: 'Mensaje demasiado grande'
-        });
-
-      }
-    });
-
-    req.on('end', () => {
-
-      if (res.writableEnded) {
-        return;
-      }
-
-      try {
-
-        const datos = JSON.parse(cuerpo);
-
-        const comando = datos.accion;
-
-        if (!ordenValida(comando)) {
+        if (
+          typeof comando !== 'string' ||
+          !comandoValido(comando)
+        ) {
 
           responder(res, 400, {
-            error: 'Comando no permitido'
+            ok: false,
+            error: 'Datos incorrectos.'
           });
 
           return;
         }
 
         enviarOrden(comando, res);
+      });
 
-      } catch (error) {
+      return;
+    }
 
-        responder(res, 400, {
-          error: 'Datos incorrectos'
-        });
-
-      }
+    responder(res, 404, {
+      error: 'Ruta no encontrada'
     });
+  }
+);
 
-    return;
+// ===========================================
+// ERRORES DEL SERVIDOR
+// ===========================================
+
+servidor.on('error', error => {
+
+  if (error.code === 'EADDRINUSE') {
+
+    console.error(
+      'El puerto 3002 ya esta ocupado. Cierra el servidor anterior.'
+    );
+
+  } else {
+
+    console.error(
+      'Error de servidor:',
+      error.message
+    );
   }
 
-  responder(res, 404, {
-    error: 'Ruta no encontrada'
-  });
-
+  process.exit(1);
 });
 
-// =====================================
-// INICIAR SERVIDOR
-// =====================================
+// ===========================================
+// INICIAR SERVIDOR Y ARDUINO
+// ===========================================
 
 servidor.listen(
   PUERTO_HTTP,
@@ -423,22 +508,37 @@ servidor.listen(
     console.log('==============================');
     console.log('     COLONIA DOMOTICA');
     console.log('==============================');
-    console.log('Servidor: puerto 3002');
-    console.log('Arduino:', PUERTO_ARDUINO);
-    console.log('==============================');
-
-  }
-);
-
-// ABRIR COM7 DESPUES DE CONFIGURAR TODO
-arduino.open(error => {
-
-  if (error) {
 
     console.log(
-      'No se pudo abrir COM7:',
-      error.message
+      'Servidor: puerto',
+      PUERTO_HTTP
     );
 
+    console.log(
+      'Arduino:',
+      PUERTO_ARDUINO
+    );
+
+    console.log('==============================');
+
+    arduino.open(error => {
+
+      if (error) {
+
+        registro(
+          '[NO SE PUDO ABRIR]',
+          error.message
+        );
+
+        return;
+      }
+
+      registro(
+        '[PUERTO ABIERTO]',
+        PUERTO_ARDUINO
+      );
+
+      registro('[ESPERANDO ARDUINO]');
+    });
   }
-});
+);

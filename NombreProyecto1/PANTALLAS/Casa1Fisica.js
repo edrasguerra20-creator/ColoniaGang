@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const URL = 'http://192.168.1.8:3002';
+const URL = 'http://192.168.0.8:3002';
 
 export default function Casa1Fisica() {
 
