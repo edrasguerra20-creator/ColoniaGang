@@ -2,9 +2,25 @@
 const http = require('http');
 const { SerialPort, ReadlineParser } = require('serialport');
 
+<<<<<<< HEAD
 // ===========================================
 // COLONIA DOMOTICA - SERVIDOR ARDUINO
 // ===========================================
+=======
+const {
+  SerialPort,
+  ReadlineParser
+} = require('serialport');
+
+<<<<<<< HEAD
+// CAMBIA COM3 POR EL PUERTO DE TU ARDUINO
+const PUERTO_ARDUINO = 'COM4';
+=======
+// =====================================
+// COLONIA DOMOTICA INTELIGENTE
+// SERVIDOR DE LAS 4 CASAS Y 6 POSTES
+// =====================================
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
 
 // UN SOLO SERVIDOR PARA TODA LA MAQUETA
 const PUERTO_HTTP = 3002;
@@ -21,9 +37,16 @@ let arduinoListo = false;
 let ultimaRespuesta = 'Sin datos';
 let pendiente = null;
 
+<<<<<<< HEAD
 // ===========================================
 // CONEXION CON ARDUINO
 // ===========================================
+=======
+// =====================================
+// CONEXION SERIAL
+// =====================================
+>>>>>>> 9768f5f584ed49ec0c3184dacec96f415f2f73b4
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
 
 const arduino = new SerialPort({
   path: PUERTO_ARDUINO,

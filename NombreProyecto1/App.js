@@ -22,12 +22,32 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Login from './PANTALLAS/Login';
 import Registro from './PANTALLAS/Registro';
 import Chatbot from './PANTALLAS/Chatbot';
+import Historial from './PANTALLAS/Historial';
 
 // ============================================
 // COLONIA DOMOTICA
 // ============================================
 
 const CLAVE = '@ColoniaGang_Usuarios';
+const CLAVE_HISTORIAL = '@ColoniaGang_Historial_v1';
+const LIMITE_HISTORIAL = 100;
+
+// Texto que se guarda cuando cambia un control de una casa.
+function descripcionControlCasa(numero, componente, encendido) {
+  const elemento = componente === 'luz'
+    ? 'Luz'
+    : componente === 'puerta'
+      ? 'Puerta'
+      : numero < 2 ? 'Ventana' : 'Tendedero';
+
+  const estado = componente === 'luz'
+    ? (encendido ? 'encendida' : 'apagada')
+    : componente === 'puerta' || numero < 2 && componente === 'especial'
+      ? (encendido ? 'abierta' : 'cerrada')
+      : (encendido ? 'extendido' : 'guardado');
+
+  return `${elemento} ${estado} — Casa ${numero + 1}`;
+}
 
 // IP DE LA COMPUTADORA
 const URL_ARDUINO = 'http://192.168.0.8:3002';
@@ -117,8 +137,57 @@ export default function App() {
   const [casaAsignada, setCasaAsignada] = useState(0);
   const [nombreSesion, setNombreSesion] = useState('');
 
+<<<<<<< HEAD
   // ARDUINO
   const [enviando, setEnviando] = useState(false);
+=======
+  // HISTORIAL DE ACTIVIDADES
+  const [historial, setHistorial] = useState([]);
+  const historialActual = useRef([]);
+  const colaGuardadoHistorial = useRef(Promise.resolve());
+
+  const registrarActividad = (categoria, descripcion, casa = null, modo = 'Simulación') => {
+    const actividad = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+      fecha: new Date().toISOString(),
+      usuario: usuario.trim().toLowerCase(),
+      autor: nombreSesion,
+      categoria,
+      descripcion,
+      casa,
+      modo
+    };
+
+    const actualizadas = [actividad, ...historialActual.current]
+      .slice(0, LIMITE_HISTORIAL);
+
+    historialActual.current = actualizadas;
+    setHistorial(actualizadas);
+
+    // Guardar en orden para no perder eventos al pulsar rápido varios controles.
+    colaGuardadoHistorial.current = colaGuardadoHistorial.current
+      .catch(() => {})
+      .then(() => AsyncStorage.setItem(
+        CLAVE_HISTORIAL,
+        JSON.stringify(actualizadas)
+      ));
+
+    colaGuardadoHistorial.current.catch(error => {
+      console.error('No se pudo guardar el historial:', error);
+      Alert.alert(
+        'Historial no guardado',
+        'La actividad aparece en pantalla, pero no se pudo guardar en este dispositivo.'
+      );
+    });
+  };
+
+  // CONEXION CON ARDUINO
+  const [enviandoCasa1, setEnviandoCasa1] = useState(false);
+  const [mensajeCasa1, setMensajeCasa1] = useState(
+    'Sistema preparado para controlar la Casa 1.'
+  );
+
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
   const bloqueoEnvio = useRef(false);
 
   const [mensajesCasas, setMensajesCasas] = useState(
@@ -147,29 +216,55 @@ export default function App() {
   // CARGAR USUARIOS
   // ==========================================
 
+<<<<<<< HEAD
   useEffect(() => {
     const cargarUsuarios = async () => {
+=======
+  // CARGAR USUARIOS E HISTORIAL GUARDADOS
+  useEffect(() => {
+    async function cargarDatos() {
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
       try {
         const guardados = await AsyncStorage.getItem(CLAVE);
-
         if (guardados) {
           const lista = JSON.parse(guardados);
-
           if (Array.isArray(lista)) {
             setCuentas(lista);
           }
         }
       } catch (error) {
+<<<<<<< HEAD
         Alert.alert(
           'Aviso',
           'No se pudieron cargar los usuarios.'
         );
+=======
+        Alert.alert('Aviso', 'No se pudieron cargar los usuarios.');
+      }
+
+      try {
+        const guardado = await AsyncStorage.getItem(CLAVE_HISTORIAL);
+        if (guardado) {
+          const lista = JSON.parse(guardado);
+          if (Array.isArray(lista)) {
+            const actividades = lista.slice(0, LIMITE_HISTORIAL);
+            historialActual.current = actividades;
+            setHistorial(actividades);
+          }
+        }
+      } catch (error) {
+        Alert.alert('Aviso', 'No se pudo cargar el historial de actividades.');
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
       } finally {
         setCargando(false);
       }
     };
 
+<<<<<<< HEAD
     cargarUsuarios();
+=======
+    cargarDatos();
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
   }, []);
 
   const casasOcupadas = cuentas.map(
@@ -364,7 +459,100 @@ export default function App() {
   // ENVIAR ORDEN AL ARDUINO
   // ==========================================
 
+<<<<<<< HEAD
   const enviarAlArduino = async comando => {
+=======
+  const cambiarCasa = async (numero, componente) => {
+
+    // VERIFICAR PERMISOS
+    if (
+      rol !== 'admin' &&
+      !(rol === 'usuario' && numero === casaAsignada)
+    ) {
+      return;
+    }
+
+    // CASAS 2, 3 Y 4: SIMULACION
+    if (numero !== 0) {
+      const nuevoEstado = !casas[numero][componente];
+
+      setCasas(anteriores =>
+        anteriores.map((casa, i) =>
+          i === numero
+            ? { ...casa, [componente]: nuevoEstado }
+            : casa
+        )
+      );
+
+      registrarActividad(
+        'casas',
+        descripcionControlCasa(numero, componente, nuevoEstado),
+        numero + 1,
+        'Simulación'
+      );
+      return;
+    }
+
+    // CASA 1: VENTANA PENDIENTE
+    if (componente === 'especial') {
+
+      Alert.alert(
+        'Ventana pendiente',
+        'Necesitamos alimentación adecuada para controlar los dos servomotores.'
+      );
+
+      return;
+    }
+
+    // EVITAR ENVIAR DOS ORDENES AL MISMO TIEMPO
+    if (bloqueoEnvio.current) {
+      return;
+    }
+
+    // ESTADOS ANTERIOR Y NUEVO
+    const estadoAnterior = casas[0][componente];
+    const nuevoEstado = !estadoAnterior;
+
+    // COMANDO PARA ARDUINO
+    let comando = '';
+
+    if (componente === 'luz') {
+      comando = nuevoEstado
+        ? 'LUZ_ON'
+        : 'LUZ_OFF';
+    }
+
+    else if (componente === 'puerta') {
+      comando = nuevoEstado
+        ? 'PUERTA_ABRIR'
+        : 'PUERTA_CERRAR';
+    }
+
+    if (!comando) {
+      return;
+    }
+
+    bloqueoEnvio.current = true;
+    setEnviandoCasa1(true);
+
+    // RESPUESTA INMEDIATA EN PANTALLA
+    setCasas(anteriores =>
+      anteriores.map((casa, i) =>
+        i === 0
+          ? {
+              ...casa,
+              [componente]: nuevoEstado
+            }
+          : casa
+      )
+    );
+
+    setMensajeCasa1(
+      'Enviando orden al Arduino...'
+    );
+
+    // TIEMPO MAXIMO PARA LA RESPUESTA
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
     const controlador = new AbortController();
 
     const temporizador = setTimeout(() => {
@@ -396,6 +584,14 @@ export default function App() {
       }
 
       return datos;
+
+      // Solo registrar si el servidor aceptó la orden (no confirma movimiento físico).
+      registrarActividad(
+        'casas',
+        descripcionControlCasa(numero, componente, nuevoEstado),
+        numero + 1,
+        'Orden aceptada por servidor'
+      );
 
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -538,6 +734,7 @@ export default function App() {
   // CONTROLAR UN POSTE
   // ==========================================
 
+<<<<<<< HEAD
   const cambiarPoste = async numero => {
     if (rol !== 'admin' || bloqueoEnvio.current) {
       return;
@@ -579,6 +776,39 @@ export default function App() {
       bloqueoEnvio.current = false;
       setEnviando(false);
     }
+=======
+  const cambiarPoste = numero => {
+    if (rol !== 'admin') return;
+
+    const nuevoEstado = !postes[numero];
+    setPostes(anteriores =>
+      anteriores.map((encendido, i) =>
+        i === numero ? nuevoEstado : encendido
+      )
+    );
+
+    registrarActividad(
+      'postes',
+      `Poste ${numero + 1} ${nuevoEstado ? 'encendido' : 'apagado'}`,
+      null,
+      'Control desde la aplicación'
+    );
+  };
+
+  const cambiarTodosPostes = encender => {
+    if (rol !== 'admin') return;
+
+    const cambiados = postes.filter(estado => estado !== encender).length;
+    if (cambiados === 0) return;
+
+    setPostes(Array(6).fill(encender));
+    registrarActividad(
+      'postes',
+      `${cambiados} poste${cambiados === 1 ? '' : 's'} ${encender ? 'encendido' : 'apagado'}${cambiados === 1 ? '' : 's'} con acción general`,
+      null,
+      'Control desde la aplicación'
+    );
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
   };
 
   // ==========================================
@@ -824,6 +1054,7 @@ export default function App() {
 
   const menu = rol === 'admin'
     ? [
+<<<<<<< HEAD
         {
           id: 'inicio',
           nombre: 'Inicio',
@@ -856,6 +1087,18 @@ export default function App() {
           nombre: 'Mi perfil',
           icono: 'person-outline'
         }
+=======
+        { id: 'inicio', nombre: 'Inicio', icono: 'grid-outline' },
+        { id: 'casas', nombre: 'Casas', icono: 'home-outline' },
+        { id: 'postes', nombre: 'Postes', icono: 'bulb-outline' },
+        { id: 'historial', nombre: 'Historial', icono: 'time-outline' }
+      ]
+    : [
+        { id: 'inicio', nombre: 'Inicio', icono: 'home-outline' },
+        { id: 'casa', nombre: 'Mi casa', icono: 'options-outline' },
+        { id: 'perfil', nombre: 'Mi perfil', icono: 'person-outline' },
+        { id: 'historial', nombre: 'Historial', icono: 'time-outline' }
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
       ];
 
   // ==========================================
@@ -1013,12 +1256,17 @@ export default function App() {
               ))}
 
               <TouchableOpacity
+<<<<<<< HEAD
                 style={[
                   styles.botonGrande,
                   enviando && styles.botonDeshabilitado
                 ]}
                 onPress={() => cambiarTodosPostes(true)}
                 disabled={enviando}
+=======
+                style={styles.botonGrande}
+                onPress={() => cambiarTodosPostes(true)}
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
               >
                 <Text style={styles.textoBlanco}>
                   Encender todos
@@ -1026,12 +1274,17 @@ export default function App() {
               </TouchableOpacity>
 
               <TouchableOpacity
+<<<<<<< HEAD
                 style={[
                   styles.botonGrande,
                   enviando && styles.botonDeshabilitado
                 ]}
                 onPress={() => cambiarTodosPostes(false)}
                 disabled={enviando}
+=======
+                style={styles.botonGrande}
+                onPress={() => cambiarTodosPostes(false)}
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
               >
                 <Text style={styles.textoBlanco}>
                   Apagar todos
@@ -1051,6 +1304,19 @@ export default function App() {
 
             </View>
           </View>
+        )}
+
+        {/* HISTORIAL: ADMIN VE TODO; RESIDENTE SOLO SUS ACCIONES */}
+        {pestana === 'historial' && (
+          <Historial
+            actividades={rol === 'admin'
+              ? historial
+              : historial.filter(actividad =>
+                  actividad.usuario === usuario.trim().toLowerCase() &&
+                  actividad.categoria === 'casas'
+                )}
+            esAdmin={rol === 'admin'}
+          />
         )}
 
         {/* USUARIO - INICIO */}
