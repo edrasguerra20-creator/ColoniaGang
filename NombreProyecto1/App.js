@@ -138,7 +138,7 @@ export default function App() {
   const [casaAsignada, setCasaAsignada] = useState(0);
   const [nombreSesion, setNombreSesion] = useState('');
 
-  // HISTORIAL: se conserva en el dispositivo, como en la versión original.
+  // HISTORIAL DE ACTIVIDADES
   const [historial, setHistorial] = useState([]);
   const historialActual = useRef([]);
   const colaGuardadoHistorial = useRef(Promise.resolve());
@@ -156,17 +156,26 @@ export default function App() {
     setHistorial(nuevas);
     colaGuardadoHistorial.current = colaGuardadoHistorial.current
       .catch(() => {})
-      .then(() => AsyncStorage.setItem(CLAVE_HISTORIAL, JSON.stringify(nuevas)));
-    colaGuardadoHistorial.current.catch(error => console.error('Error guardando historial:', error));
+      .then(() => AsyncStorage.setItem(
+        CLAVE_HISTORIAL,
+        JSON.stringify(actualizadas)
+      ));
+
+    colaGuardadoHistorial.current.catch(error => {
+      console.error('No se pudo guardar el historial:', error);
+      Alert.alert(
+        'Historial no guardado',
+        'La actividad aparece en pantalla, pero no se pudo guardar en este dispositivo.'
+      );
+    });
   };
 
-  // PROGRAMACIONES COMPARTIDAS EN EL SERVIDOR DE ARDUINO.
-  const [automatizaciones, setAutomatizaciones] = useState([]);
-  const [errorAutomatizaciones, setErrorAutomatizaciones] = useState('');
-  const completadasVistas = useRef(new Set());
+  // CONEXION CON ARDUINO
+  const [enviandoCasa1, setEnviandoCasa1] = useState(false);
+  const [mensajeCasa1, setMensajeCasa1] = useState(
+    'Sistema preparado para controlar la Casa 1.'
+  );
 
-  // ARDUINO
-  const [enviando, setEnviando] = useState(false);
   const bloqueoEnvio = useRef(false);
 
   const [mensajesCasas, setMensajesCasas] = useState(
@@ -191,12 +200,9 @@ export default function App() {
     Array(6).fill(false)
   );
 
-  // ==========================================
-  // CARGAR USUARIOS
-  // ==========================================
-
+  // CARGAR USUARIOS E HISTORIAL GUARDADOS
   useEffect(() => {
-    const cargarUsuarios = async () => {
+    async function cargarDatos() {
       try {
         const guardados = await AsyncStorage.getItem(CLAVE);
         if (guardados) {
@@ -206,6 +212,12 @@ export default function App() {
           }
         }
       } catch (error) {
+<<<<<<< HEAD
+        Alert.alert(
+          'Aviso',
+          'No se pudieron cargar los usuarios.'
+        );
+=======
         Alert.alert('Aviso', 'No se pudieron cargar los usuarios.');
       }
       try {
@@ -219,64 +231,16 @@ export default function App() {
           }
         }
       } catch (error) {
-        console.error('No se pudo cargar el historial:', error);
+        Alert.alert('Aviso', 'No se pudo cargar el historial de actividades.');
       } finally {
         setCargando(false);
       }
     };
 
-    cargarUsuarios();
+    cargarDatos();
   }, []);
 
-  useEffect(() => {
-    if (!rol) return undefined;
-    let activo = true;
-    let consultando = false;
-    const actualizar = async () => {
-      if (consultando) return;
-      consultando = true;
-      const controlador = new AbortController();
-      const finEspera = setTimeout(() => controlador.abort(), 6000);
-      try {
-        const respuesta = await fetch(URL_ARDUINO + '/automatizaciones', { signal: controlador.signal });
-        const datos = await respuesta.json();
-        if (!respuesta.ok || !datos.ok || !Array.isArray(datos.automatizaciones)) {
-          throw new Error(datos.error || 'Respuesta incorrecta.');
-        }
-        if (!activo) return;
-        setAutomatizaciones(datos.automatizaciones);
-        setErrorAutomatizaciones('');
-        // Actualizar los controles tras la confirmación de cada acción programada.
-        for (const trabajo of datos.automatizaciones) {
-          if (trabajo.estado !== 'completada' || completadasVistas.current.has(trabajo.id)) continue;
-          completadasVistas.current.add(trabajo.id);
-          const indice = trabajo.casa - 1;
-          const encendido = trabajo.accion === 'activar';
-          if (indice >= 0 && indice < 4 && ['luz', 'puerta', 'especial'].includes(trabajo.dispositivo)) {
-            setCasas(anteriores => anteriores.map((casa, i) =>
-              i === indice ? { ...casa, [trabajo.dispositivo]: encendido } : casa
-            ));
-            setMensajesCasas(anteriores => anteriores.map((mensaje, i) =>
-              i === indice ? `Automatización confirmada: ${trabajo.comando}` : mensaje
-            ));
-          }
-        }
-      } catch (error) {
-        if (activo) setErrorAutomatizaciones(error.name === 'AbortError'
-          ? 'El servidor no responde.' : error.message);
-      } finally {
-        clearTimeout(finEspera);
-        consultando = false;
-      }
-    };
-    actualizar();
-    const intervalo = setInterval(actualizar, 3000);
-    return () => {
-      activo = false;
-      clearInterval(intervalo);
-    };
-  }, [rol]);
-
+  // CASAS OCUPADAS
   const casasOcupadas = cuentas.map(
     cuenta => cuenta.casa
   );
@@ -465,53 +429,18 @@ export default function App() {
     setNombreSesion('');
   };
 
-  // ==========================================
-  // ENVIAR ORDEN AL ARDUINO
-  // ==========================================
+  // =========================================
+  // CONTROL FLUIDO DE LAS CASAS
+  // =========================================
 
-  const enviarAlArduino = async comando => {
-    const controlador = new AbortController();
+  const cambiarCasa = async (numero, componente) => {
 
-    const temporizador = setTimeout(() => {
-      controlador.abort();
-    }, ESPERA_APP);
-
-    try {
-      const respuesta = await fetch(
-        URL_ARDUINO + '/control',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            accion: comando
-          }),
-          signal: controlador.signal
-        }
-      );
-
-      const datos = await respuesta.json();
-
-      if (!respuesta.ok || datos.ok !== true) {
-        throw new Error(
-          datos.error ||
-          'Arduino no confirmo la orden.'
-        );
-      }
-
-      return datos;
-
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        throw new Error(
-          'Se agotaron los 30 segundos de espera.'
-        );
-      }
-      throw error;
-
-    } finally {
-      clearTimeout(temporizador);
+    // VERIFICAR PERMISOS
+    if (
+      rol !== 'admin' &&
+      !(rol === 'usuario' && numero === casaAsignada)
+    ) {
+      return;
     }
   };
 
@@ -660,73 +589,85 @@ export default function App() {
         )
       );
 
-      setMensajesCasas(anteriores =>
-        anteriores.map((mensaje, i) =>
-          i === numero
-            ? `Arduino confirmo: ${comando}`
-            : mensaje
-        )
-      );
-      registrarActividad('casas', descripcionControlCasa(numero, componente, nuevoEstado),
-        numero + 1, 'Orden confirmada por Arduino');
+    setMensajeCasa1(
+      'Enviando orden al Arduino...'
+    );
 
-    } catch (error) {
-      setMensajesCasas(anteriores =>
-        anteriores.map((mensaje, i) =>
-          i === numero
-            ? `No confirmado: ${error.message}`
-            : mensaje
-        )
-      );
+    // TIEMPO MAXIMO PARA LA RESPUESTA
+    const controlador = new AbortController();
 
-      Alert.alert(
-        `Casa ${numero + 1}: orden no confirmada`,
-        error.message
-      );
-
-    } finally {
-      bloqueoEnvio.current = false;
-      setEnviando(false);
-    }
-  };
-
-  // ==========================================
-  // CONTROLAR TODOS LOS POSTES
-  // ==========================================
-
-  const cambiarTodosPostes = async encender => {
-    if (rol !== 'admin' || bloqueoEnvio.current) {
-      return;
-    }
-
-    const comando =
-      `POSTES_TODOS_${encender ? 'ON' : 'OFF'}`;
-
-    bloqueoEnvio.current = true;
-    setEnviando(true);
-    setMensajePostes(`Enviando ${comando}...`);
+    const temporizador = setTimeout(() => {
+      controlador.abort();
+    }, 7000);
 
     try {
-      await enviarAlArduino(comando);
 
-      setPostes(
-        Array(6).fill(encender)
+      // ENVIAR ORDEN A NODE.JS
+      const respuesta = await fetch(
+        URL_CASA1 + '/control',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            accion: comando
+          }),
+          signal: controlador.signal
+        }
       );
 
-      setMensajePostes(
-        `Arduino confirmo: ${comando}`
+      const datos = await respuesta.json();
+
+      if (!respuesta.ok) {
+        throw new Error(
+          datos.error || 'El servidor no aceptó la orden.'
+        );
+      }
+
+      // ORDEN ACEPTADA
+      setMensajeCasa1(
+        'Orden enviada al Arduino: ' + comando
       );
-      registrarActividad('postes', `Se ordenó ${encender ? 'encender' : 'apagar'} los 6 postes`,
-        null, 'Orden confirmada por Arduino');
+
+      // Solo registrar si el servidor aceptó la orden (no confirma movimiento físico).
+      registrarActividad(
+        'casas',
+        descripcionControlCasa(numero, componente, nuevoEstado),
+        numero + 1,
+        'Orden aceptada por servidor'
+      );
 
     } catch (error) {
-      setMensajePostes(
-        `No confirmado: ${error.message}`
+
+      // RECUPERAR ESTADO ANTERIOR
+      setCasas(anteriores =>
+        anteriores.map((casa, i) =>
+          i === 0
+            ? {
+                ...casa,
+                [componente]: estadoAnterior
+              }
+            : casa
+        )
       );
 
+      if (error.name === 'AbortError') {
+
+        setMensajeCasa1(
+          'El servidor tardó demasiado en responder.'
+        );
+
+      } else {
+
+        setMensajeCasa1(
+          'Error de conexión con el Arduino.'
+        );
+      }
+
       Alert.alert(
-        'Postes: orden no confirmada',
-        error.message
+        'Error de conexión',
+        'No se pudo confirmar la orden. Revisa la conexión del Arduino y el servidor del puerto 3002.'
       );
 
     } finally {
@@ -735,9 +676,46 @@ export default function App() {
     }
   };
 
-  // ==========================================
-  // MOSTRAR CONTROLES DE UNA CASA
-  // ==========================================
+  // =========================================
+  // CONTROLAR POSTES
+  // =========================================
+
+  const cambiarPoste = numero => {
+    if (rol !== 'admin') return;
+
+    const nuevoEstado = !postes[numero];
+    setPostes(anteriores =>
+      anteriores.map((encendido, i) =>
+        i === numero ? nuevoEstado : encendido
+      )
+    );
+
+    registrarActividad(
+      'postes',
+      `Poste ${numero + 1} ${nuevoEstado ? 'encendido' : 'apagado'}`,
+      null,
+      'Control desde la aplicación'
+    );
+  };
+
+  const cambiarTodosPostes = encender => {
+    if (rol !== 'admin') return;
+
+    const cambiados = postes.filter(estado => estado !== encender).length;
+    if (cambiados === 0) return;
+
+    setPostes(Array(6).fill(encender));
+    registrarActividad(
+      'postes',
+      `${cambiados} poste${cambiados === 1 ? '' : 's'} ${encender ? 'encendido' : 'apagado'}${cambiados === 1 ? '' : 's'} con acción general`,
+      null,
+      'Control desde la aplicación'
+    );
+  };
+
+  // =========================================
+  // MOSTRAR CASA
+  // =========================================
 
   const mostrarCasa = numero => {
     const casa = casas[numero];
@@ -860,19 +838,20 @@ export default function App() {
           {mensajesCasas[numero]}
         </Text>
 
-        <Text style={styles.notaSimulacion}>
-          El estado se actualiza cuando Arduino
-          confirma la orden. Esto no comprueba
-          la posición física del mecanismo.
-        </Text>
+            <Text style={styles.notaSimulacion}>
+              La ventana se habilitará cuando tengamos
+              alimentación adecuada para ambos servos.
+            </Text>
 
-        <AutomatizacionCasa
-          casa={numero + 1}
-          trabajos={automatizaciones.filter(item => item.casa === numero + 1)}
-          onCrear={crearAutomatizacion}
-          onCancelar={cancelarAutomatizacion}
-          errorConexion={errorAutomatizaciones}
-        />
+            <Text style={styles.notaSimulacion}>
+              El estado mostrado representa la última
+              orden solicitada. No confirma la posición
+              física del dispositivo.
+            </Text>
+
+          </View>
+
+        )}
 
       </View>
     );
@@ -943,21 +922,9 @@ export default function App() {
 
   const menu = rol === 'admin'
     ? [
-        {
-          id: 'inicio',
-          nombre: 'Inicio',
-          icono: 'grid-outline'
-        },
-        {
-          id: 'casas',
-          nombre: 'Casas',
-          icono: 'home-outline'
-        },
-        {
-          id: 'postes',
-          nombre: 'Postes',
-          icono: 'bulb-outline'
-        },
+        { id: 'inicio', nombre: 'Inicio', icono: 'grid-outline' },
+        { id: 'casas', nombre: 'Casas', icono: 'home-outline' },
+        { id: 'postes', nombre: 'Postes', icono: 'bulb-outline' },
         { id: 'historial', nombre: 'Historial', icono: 'time-outline' }
       ]
     : [
@@ -977,6 +944,7 @@ export default function App() {
           icono: 'person-outline'
         },
         { id: 'historial', nombre: 'Historial', icono: 'time-outline' }
+>>>>>>> b696bbbfceebe964feb17b0976a0778001dccf18
       ];
 
   // ==========================================
@@ -1118,32 +1086,26 @@ export default function App() {
 
               {/* Estado informativo: no se permite controlar postes por separado. */}
               {postes.map((encendido, i) => (
-                <View key={i} style={styles.control}>
-                  <View style={styles.iconoControl}>
-                    <Ionicons
-                      name={encendido ? 'bulb' : 'bulb-outline'}
-                      size={25}
-                      color="#38BDF8"
-                    />
-                  </View>
-                  <View style={styles.controlInfo}>
-                    <Text style={styles.controlNombre}>
-                      Poste {i + 1}
-                    </Text>
-                    <Text style={styles.controlEstado}>
-                      {encendido ? 'Encendido' : 'Apagado'}
-                    </Text>
-                  </View>
-                </View>
+
+                <Control
+                  key={i}
+                  nombre={`Poste ${i + 1}`}
+                  icono={
+                    encendido ? 'bulb' : 'bulb-outline'
+                  }
+                  activo={encendido}
+                  textoActivo="Encendido"
+                  textoInactivo="Apagado"
+                  botonActivo="Apagar"
+                  botonInactivo="Encender"
+                  accion={() => cambiarPoste(i)}
+                />
+
               ))}
 
               <TouchableOpacity
-                style={[
-                  styles.botonGrande,
-                  enviando && styles.botonDeshabilitado
-                ]}
+                style={styles.botonGrande}
                 onPress={() => cambiarTodosPostes(true)}
-                disabled={enviando}
               >
                 <Text style={styles.textoBlanco}>
                   Encender todos
@@ -1151,12 +1113,8 @@ export default function App() {
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[
-                  styles.botonGrande,
-                  enviando && styles.botonDeshabilitado
-                ]}
+                style={styles.botonGrande}
                 onPress={() => cambiarTodosPostes(false)}
-                disabled={enviando}
               >
                 <Text style={styles.textoBlanco}>
                   Apagar todos

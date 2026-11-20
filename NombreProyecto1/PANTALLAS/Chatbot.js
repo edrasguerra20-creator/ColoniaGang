@@ -6,8 +6,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-// IP de la computadora. La última que mostró Expo fue 192.168.0.8.
-const URL_API = 'http://192.168.0.8:3001/chat';
+// IP de la computadora. La última que mostró Expo fue 192.168.1.26.
+const URL_API = 'http://192.168.1.8:3001/chat';
 
 
 export default function Chatbot({
